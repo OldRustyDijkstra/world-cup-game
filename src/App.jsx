@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw } from 'lucide-react';
+import { simulateTournament } from './BracketSimulator.jsx';
 
 // ==========================================
 // DATA STRUCTURES
@@ -120,6 +121,8 @@ export default function SlipPickApp() {
   const [isShuffling, setIsShuffling] = useState(false);
   const [hasAssigned, setHasAssigned] = useState(false);
   const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring'
+  const PRIZES = { first: 500, second: 200, third: 100 };
+  const [tournamentResults, setTournamentResults] = useState(null);
 
   // ==========================================
   // SLIP-PICK SHUFFLE ENGINE
@@ -145,18 +148,20 @@ export default function SlipPickApp() {
         [poolIds[i], poolIds[j]] = [poolIds[j], poolIds[i]];
       }
 
-      // Mock assigning deterministic live tournament progress points for dynamic leaderboard
-      const mockPoints = [24, 18, 14, 28, 32, 10, 12, 16];
-
-      setPlayers(prev => prev.map((player, index) => ({
+      // Assign pools deterministically from shuffled poolIds
+      const assignedPlayers = players.map((player, index) => ({
         ...player,
-        poolId: poolIds[index],
-        points: mockPoints[poolIds[index] - 1] // Tied to pool combinations
-      })));
+        poolId: poolIds[index]
+      }));
 
+      setPlayers(assignedPlayers);
       setIsShuffling(false);
       setHasAssigned(true);
       setActiveTab('dashboard');
+
+      // Run tournament simulation and store top-3 results
+      const results = simulateTournament(POOLS_DATA);
+      setTournamentResults(results);
     }, 2000);
   };
 
@@ -290,25 +295,32 @@ export default function SlipPickApp() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* Live Leaderboard Standings Tracker */}
+                {/* Prize Winners */}
                 <div className="lg:col-span-1 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-700 shadow-xl h-fit">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center justify-between">
-                    <span>🏆 Live Standings</span>
-                    <span className="text-xs bg-slate-700 px-2 py-0.5 rounded font-normal text-slate-400">Simulated Progress</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {[...players].sort((a,b) => b.points - a.points).map((player, idx) => (
-                      <div key={player.id} className="flex items-center justify-between p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                            {idx + 1}
-                          </span>
-                          <span className="font-semibold text-sm">{player.name}</span>
-                        </div>
-                        <span className="font-mono font-bold text-amber-400 text-sm">{player.points} pts</span>
+                  <h3 className="text-lg font-bold text-white mb-4">🏅 Prize Winners</h3>
+                  {!tournamentResults ? (
+                    <p className="text-slate-400 text-sm">Prizes will be awarded after drawing slips.</p>
+                  ) : (
+                    <div className="space-y-3 text-sm">
+                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <div className="font-semibold text-amber-400">1st — ${PRIZES.first}</div>
+                        <div className="text-slate-300">{tournamentResults.champion.name} • {tournamentResults.champion.flag}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.champion.poolId)?.name ?? 'Unassigned'}</div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <div className="font-semibold text-slate-300">2nd — ${PRIZES.second}</div>
+                        <div className="text-slate-300">{tournamentResults.runnerUp.name} • {tournamentResults.runnerUp.flag}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.runnerUp.poolId)?.name ?? 'Unassigned'}</div>
+                      </div>
+
+                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <div className="font-semibold text-slate-300">3rd — ${PRIZES.third}</div>
+                        <div className="text-slate-300">{tournamentResults.third.name} • {tournamentResults.third.flag}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.third.poolId)?.name ?? 'Unassigned'}</div>
+                      </div>
+                    </div>
+                  )}
                   <button className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all">
                     <Share2 className="w-3.5 h-3.5" /> Export Results Sheet
                   </button>
@@ -327,7 +339,7 @@ export default function SlipPickApp() {
                               <p className="text-[11px] text-amber-400 font-medium truncate max-w-[180px]">{pool?.name}</p>
                             </div>
                             <span className="bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
-                              {player.points} pts
+                              Pool {player.poolId ?? '-'}
                             </span>
                           </div>
 
@@ -358,33 +370,16 @@ export default function SlipPickApp() {
           </div>
         )}
 
-        {/* TAB 3: SCORING EXPLANATION */}
+        {/* TAB 3: PRIZE RULES */}
         {activeTab === 'scoring' && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-2xl mx-auto">
-            <h3 className="text-xl font-bold text-white mb-4">🏆 Dynamic Scoring Matrix</h3>
-            <p className="text-slate-400 text-sm mb-6">
-              Points stack dynamically as teams navigate further down the knockout bracket. Your overall scoring performance updates automatically based on the longevity weight of your allocated slip.
-            </p>
-
-            <div className="overflow-hidden rounded-xl border border-slate-700">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-900 text-slate-400 border-b border-slate-700 font-mono text-xs">
-                    <th className="p-3">Tournament Milestone Achieved</th>
-                    <th className="p-3 text-right">Points Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60 bg-slate-900/30">
-                  <tr><td className="p-3 font-medium text-slate-300">Group Stage Exit</td><td className="p-3 text-right text-slate-500 font-mono">0 pts</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-300">Survives to Round of 32</td><td className="p-3 text-right text-emerald-400 font-mono">+1 pt</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-300">Survives to Round of 16</td><td className="p-3 text-right text-emerald-400 font-mono">+2 pts</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-300">Survives to Quarter-Finals</td><td className="p-3 text-right text-emerald-400 font-mono">+4 pts</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-300">Survives to Semi-Finals</td><td className="p-3 text-right text-emerald-400 font-mono">+8 pts</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-300">Reaches the Final</td><td className="p-3 text-right text-amber-400 font-mono">+12 pts</td></tr>
-                  <tr><td className="p-3 font-medium text-slate-400 font-bold">World Cup 2026 Champion</td><td className="p-3 text-right text-amber-400 font-black font-mono">+20 pts</td></tr>
-                </tbody>
-              </table>
-            </div>
+            <h3 className="text-xl font-bold text-white mb-4">🏆 Prize Rules</h3>
+            <p className="text-slate-400 text-sm mb-4">This app awards prizes to the owners of the top three teams after a simulated tournament run.</p>
+            <ul className="list-disc ml-5 text-slate-300">
+              <li>1st place: ${PRIZES.first}</li>
+              <li>2nd place: ${PRIZES.second}</li>
+              <li>3rd place: ${PRIZES.third}</li>
+            </ul>
           </div>
         )}
 
