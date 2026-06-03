@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw } from 'lucide-react';
+import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw, Trophy } from 'lucide-react';
 import { simulateTournament } from './BracketSimulator.jsx';
 import { TEAMS } from './teams';
 import { POOLS } from './pools';
@@ -43,7 +43,7 @@ export default function SlipPickApp() {
     try { return JSON.parse(localStorage.getItem('wc26_hasAssigned')) ?? false; }
     catch { return false; }
   });
-  const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring'
+  const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
   const PRIZES = { first: 25, second: 10, third: 5 };
   const TOTAL_POT = PRIZES.first + PRIZES.second + PRIZES.third;
   const [tournamentResults, setTournamentResults] = useState(() => {
@@ -363,22 +363,28 @@ export default function SlipPickApp() {
         </section>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 mb-6 gap-2">
+        <div className="flex overflow-x-auto border-b border-slate-800 mb-6 gap-1">
           <button
             onClick={() => setActiveTab('pools')}
-            className={`px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'pools' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'pools' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Layers className="w-4 h-4 inline mr-2" /> Pre-Configured Pools
           </button>
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'dashboard' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'dashboard' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Award className="w-4 h-4 inline mr-2" /> Player Dashboards & Standings
           </button>
           <button
+            onClick={() => setActiveTab('bracket')}
+            className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'bracket' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            <Trophy className="w-4 h-4 inline mr-2" /> Bracket
+          </button>
+          <button
             onClick={() => setActiveTab('scoring')}
-            className={`px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'scoring' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'scoring' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <HelpCircle className="w-4 h-4 inline mr-2" /> Scoring Rules
           </button>
@@ -581,6 +587,130 @@ export default function SlipPickApp() {
             </ul>
           </div>
         )}
+
+        {/* TAB 4: BRACKET / MATCH RESULTS */}
+        {activeTab === 'bracket' && (() => {
+          const hasBracketData = tournamentResults?.matchesR32
+            && tournamentResults?.matchesR16
+            && tournamentResults?.matchesQF
+            && tournamentResults?.matchesSF
+            && tournamentResults?.matchThird
+            && tournamentResults?.matchFinal;
+
+          const TeamRow = ({ team, isWinner }) => (
+            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${isWinner ? 'bg-amber-500/10 border border-amber-500/40 text-slate-100' : 'bg-slate-900/50 border border-slate-800 text-slate-300'}`}>
+              <span className="flex items-center gap-1.5 min-w-0 font-medium truncate">
+                <span className="text-base shrink-0">{team.flag}</span>
+                <span className="truncate">{team.name}</span>
+              </span>
+              <span className="flex items-center gap-1 shrink-0 ml-1">
+                <span className="text-[10px] text-slate-400 max-w-[72px] truncate">{getPoolOwnerName(team.poolId)}</span>
+                {isWinner && <span className="text-amber-400 font-bold">✓</span>}
+              </span>
+            </div>
+          );
+
+          const MatchCard = ({ match, accent }) => (
+            <div className={`bg-slate-800/60 border rounded-xl p-3 flex flex-col gap-1 ${accent ? 'border-amber-500/30' : 'border-slate-700/60'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-mono font-semibold text-slate-400">{match.label}</span>
+                {match.isBye && (
+                  <span className="text-[9px] uppercase tracking-wide text-emerald-400 font-bold bg-emerald-900/30 border border-emerald-700/40 px-1.5 py-0.5 rounded">BYE</span>
+                )}
+              </div>
+              {match.isBye ? (
+                <TeamRow team={match.teamA} isWinner={true} />
+              ) : (
+                <>
+                  <TeamRow team={match.teamA} isWinner={match.winner === match.teamA} />
+                  <div className="text-center text-[10px] text-slate-600 font-semibold tracking-widest">VS</div>
+                  <TeamRow team={match.teamB} isWinner={match.winner === match.teamB} />
+                </>
+              )}
+            </div>
+          );
+
+          const RoundSection = ({ title, matches, cols = 'grid-cols-2 sm:grid-cols-4', accent = false }) => (
+            <section>
+              <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">{title}</h4>
+              <div className={`grid ${cols} gap-3`}>
+                {matches.map((m) => <MatchCard key={m.label} match={m} accent={accent} />)}
+              </div>
+            </section>
+          );
+
+          if (!tournamentResults) {
+            return (
+              <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
+                <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-slate-400">No Bracket Yet</h3>
+                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
+                  Click "Draw Pools" to simulate the tournament and see the full bracket here.
+                </p>
+              </div>
+            );
+          }
+
+          if (!hasBracketData) {
+            return (
+              <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
+                <RefreshCw className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-slate-400">Outdated Simulation</h3>
+                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
+                  Click "Redraw Pools" to re-run the simulation and unlock the full match breakdown.
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-8">
+              {/* Group Stage */}
+              <section>
+                <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Group Stage — Qualifiers</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {tournamentResults.groupStage.map(({ group, first, second }) => (
+                    <div key={group} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3">
+                      <div className="text-[11px] font-bold text-amber-400 mb-2 uppercase tracking-wide">Group {group}</div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-[9px] text-emerald-400 font-bold w-5 shrink-0">1st</span>
+                          <span className="text-base shrink-0">{first.flag}</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-slate-200 truncate">{first.name}</div>
+                            <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(first.poolId)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-[9px] text-slate-500 font-bold w-5 shrink-0">2nd</span>
+                          <span className="text-base shrink-0">{second.flag}</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-slate-300 truncate">{second.name}</div>
+                            <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(second.poolId)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <RoundSection title="Round of 32 (M73–M88)" matches={tournamentResults.matchesR32} cols="grid-cols-2 sm:grid-cols-4" />
+              <RoundSection title="Round of 16 (M89–M96)" matches={tournamentResults.matchesR16} cols="grid-cols-2 sm:grid-cols-4" />
+              <RoundSection title="Quarter-Finals" matches={tournamentResults.matchesQF} cols="grid-cols-2 sm:grid-cols-4" />
+              <RoundSection title="Semi-Finals" matches={tournamentResults.matchesSF} cols="grid-cols-1 sm:grid-cols-2" />
+
+              {/* 3rd Place + Final */}
+              <section>
+                <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Final Matches</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <MatchCard match={tournamentResults.matchThird} accent={false} />
+                  <MatchCard match={tournamentResults.matchFinal} accent={true} />
+                </div>
+              </section>
+            </div>
+          );
+        })()}
 
       </main>
     </div>
