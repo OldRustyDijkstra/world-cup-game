@@ -1,109 +1,20 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw } from 'lucide-react';
 import { simulateTournament } from './BracketSimulator.jsx';
+import { TEAMS } from './teams';
+import { POOLS } from './pools';
+import { fetchFifaRankings } from './fifaRankings';
 
 // ==========================================
 // DATA STRUCTURES
 // ==========================================
 
-const POOLS_DATA = [
-  {
-    id: 1,
-    name: "Pool 1 (Heavy Hitters - Left)",
-    teams: [
-      { name: "Mexico", group: "A", half: "Left", tier: "Top Tier", flag: "🇲🇽" },
-      { name: "Canada", group: "B", half: "Left", tier: "Mid Tier", flag: "🇨🇦" },
-      { name: "Brazil", group: "C", half: "Left", tier: "Top Tier", flag: "🇧🇷" },
-      { name: "United States", group: "D", half: "Left", tier: "Top Tier", flag: "🇺🇸" },
-      { name: "Germany", group: "E", half: "Left", tier: "Top Tier", flag: "🇩🇪" },
-      { name: "Netherlands", group: "F", half: "Left", tier: "Top Tier", flag: "🇳🇱" },
-    ]
-  },
-  {
-    id: 2,
-    name: "Pool 2 (Mid-Tier Contenders - Left)",
-    teams: [
-      { name: "South Africa", group: "A", half: "Left", tier: "Underdog", flag: "🇿🇦" },
-      { name: "Switzerland", group: "B", half: "Left", tier: "Mid Tier", flag: "🇨🇭" },
-      { name: "Scotland", group: "C", half: "Left", tier: "Mid Tier", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
-      { name: "Türkiye", group: "D", half: "Left", tier: "Mid Tier", flag: "🇹🇷" },
-      { name: "Ivory Coast", group: "E", half: "Left", tier: "Mid Tier", flag: "🇨🇮" },
-      { name: "Tunisia", group: "F", half: "Left", tier: "Mid Tier", flag: "🇹🇳" },
-    ]
-  },
-  {
-    id: 3,
-    name: "Pool 3 (Wildcards & Dreamers - Left)",
-    teams: [
-      { name: "South Korea", group: "A", half: "Left", tier: "Mid Tier", flag: "🇰🇷" },
-      { name: "Qatar", group: "B", half: "Left", tier: "Underdog", flag: "🇶🇦" },
-      { name: "Haiti", group: "C", half: "Left", tier: "Underdog", flag: "🇭🇹" },
-      { name: "Australia", group: "D", half: "Left", tier: "Mid Tier", flag: "🇦🇺" },
-      { name: "Curaçao", group: "E", half: "Left", tier: "Underdog", flag: "🇨🇼" },
-      { name: "Japan", group: "F", half: "Left", tier: "Mid Tier", flag: "🇯🇵" },
-    ]
-  },
-  {
-    id: 4,
-    name: "Pool 4 (Dark Horses - Left)",
-    teams: [
-      { name: "Czechia", group: "A", half: "Left", tier: "Mid Tier", flag: "🇨🇿" },
-      { name: "Bosnia & Herz.", group: "B", half: "Left", tier: "Mid Tier", flag: "🇧🇦" },
-      { name: "Morocco", group: "C", half: "Left", tier: "Top Tier", flag: "🇲🇦" },
-      { name: "Paraguay", group: "D", half: "Left", tier: "Mid Tier", flag: "🇵🇾" },
-      { name: "Ecuador", group: "E", half: "Left", tier: "Mid Tier", flag: "🇪🇨" },
-      { name: "Sweden", group: "F", half: "Left", tier: "Mid Tier", flag: "🇸🇪" },
-    ]
-  },
-  {
-    id: 5,
-    name: "Pool 5 (Heavy Hitters - Right)",
-    teams: [
-      { name: "Belgium", group: "G", half: "Right", tier: "Top Tier", flag: "🇧🇪" },
-      { name: "Spain", group: "H", half: "Right", tier: "Top Tier", flag: "🇪🇸" },
-      { name: "France", group: "I", half: "Right", tier: "Top Tier", flag: "🇫🇷" },
-      { name: "Argentina", group: "J", half: "Right", tier: "Top Tier", flag: "🇦🇷" },
-      { name: "Portugal", group: "K", half: "Right", tier: "Top Tier", flag: "🇵🇹" },
-      { name: "Croatia", group: "L", half: "Right", tier: "Top Tier", flag: "🇭🇷" },
-    ]
-  },
-  {
-    id: 6,
-    name: "Pool 6 (Mid-Tier Contenders - Right)",
-    teams: [
-      { name: "Egypt", group: "G", half: "Right", tier: "Mid Tier", flag: "🇪🇬" },
-      { name: "Uruguay", group: "H", half: "Right", tier: "Top Tier", flag: "🇺🇾" },
-      { name: "Norway", group: "I", half: "Right", tier: "Mid Tier", flag: "🇳🇴" },
-      { name: "Algeria", group: "J", half: "Right", tier: "Mid Tier", flag: "🇩🇿" },
-      { name: "Colombia", group: "K", half: "Right", tier: "Mid Tier", flag: "🇨🇴" },
-      { name: "England", group: "L", half: "Right", tier: "Top Tier", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-    ]
-  },
-  {
-    id: 7,
-    name: "Pool 7 (Dark Horses - Right)",
-    teams: [
-      { name: "Iran", group: "G", half: "Right", tier: "Mid Tier", flag: "🇮🇷" },
-      { name: "Saudi Arabia", group: "H", half: "Right", tier: "Underdog", flag: "🇸🇦" },
-      { name: "Senegal", group: "I", half: "Right", tier: "Mid Tier", flag: "🇸🇳" },
-      { name: "Austria", group: "J", half: "Right", tier: "Mid Tier", flag: "🇦🇹" },
-      { name: "Jamaica", group: "K", half: "Right", tier: "Underdog", flag: "🇯🇲" },
-      { name: "Ghana", group: "L", half: "Right", tier: "Mid Tier", flag: "🇬🇭" },
-    ]
-  },
-  {
-    id: 8,
-    name: "Pool 8 (Wildcards & Dreamers - Right)",
-    teams: [
-      { name: "New Zealand", group: "G", half: "Right", tier: "Underdog", flag: "🇳🇿" },
-      { name: "Cape Verde", group: "H", half: "Right", tier: "Underdog", flag: "🇨🇻" },
-      { name: "Iraq", group: "I", half: "Right", tier: "Underdog", flag: "🇮🇶" },
-      { name: "Jordan", group: "J", half: "Right", tier: "Underdog", flag: "🇯🇴" },
-      { name: "Uzbekistan", group: "K", half: "Right", tier: "Underdog", flag: "🇺🇿" },
-      { name: "Panama", group: "L", half: "Right", tier: "Underdog", flag: "🇵🇦" },
-    ]
-  }
-];
+const TEAMS_BY_ID = Object.fromEntries(TEAMS.map((team) => [team.id, team]));
+const POOLS_DATA = POOLS.map((pool) => ({
+  ...pool,
+  teams: pool.teams.map((teamId) => TEAMS_BY_ID[teamId]).filter(Boolean)
+}));
+const POOL_IDS = POOLS_DATA.map((pool) => pool.id);
 
 const INITIAL_PLAYERS = [
   { id: 1, name: "Player 1", poolId: null, points: 0 },
@@ -117,16 +28,96 @@ const INITIAL_PLAYERS = [
 ];
 
 export default function SlipPickApp() {
-  const [players, setPlayers] = useState(INITIAL_PLAYERS);
+  const [players, setPlayers] = useState(() => {
+    try {
+      const stored = localStorage.getItem('wc26_players');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length === 8) return parsed;
+      }
+    } catch {}
+    return INITIAL_PLAYERS;
+  });
   const [isShuffling, setIsShuffling] = useState(false);
-  const [hasAssigned, setHasAssigned] = useState(false);
+  const [hasAssigned, setHasAssigned] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wc26_hasAssigned')) ?? false; }
+    catch { return false; }
+  });
   const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring'
-  const PRIZES = { first: 500, second: 200, third: 100 };
-  const [tournamentResults, setTournamentResults] = useState(null);
+  const PRIZES = { first: 25, second: 10, third: 5 };
+  const TOTAL_POT = PRIZES.first + PRIZES.second + PRIZES.third;
+  const [tournamentResults, setTournamentResults] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wc26_tournamentResults')); }
+    catch { return null; }
+  });
+  const [exportFeedback, setExportFeedback] = useState('');
+
+  // FIFA rankings: { [teamId]: points } | null
+  const [fifaRankings, setFifaRankings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('wc26_fifaRankings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.rankings && typeof parsed.rankings === 'object') return parsed.rankings;
+      }
+    } catch {}
+    return null;
+  });
+  const [rankingsStatus, setRankingsStatus] = useState('idle'); // 'idle' | 'loading' | 'error'
+
+  // Persist FIFA rankings to localStorage whenever they change
+  useEffect(() => {
+    if (fifaRankings) {
+      localStorage.setItem(
+        'wc26_fifaRankings',
+        JSON.stringify({ fetchedAt: new Date().toISOString(), rankings: fifaRankings })
+      );
+    }
+  }, [fifaRankings]);
+
+  // Auto-fetch FIFA rankings on first load if not cached
+  useEffect(() => {
+    if (!fifaRankings) handleFetchRankings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync to localStorage — skip player sync during animation to avoid saving transient state
+  useEffect(() => {
+    if (!isShuffling) localStorage.setItem('wc26_players', JSON.stringify(players));
+  }, [players, isShuffling]);
+  useEffect(() => {
+    localStorage.setItem('wc26_hasAssigned', JSON.stringify(hasAssigned));
+  }, [hasAssigned]);
+  useEffect(() => {
+    localStorage.setItem('wc26_tournamentResults', JSON.stringify(tournamentResults));
+  }, [tournamentResults]);
+
+  // ==========================================
+  // FIFA RANKINGS
+  // ==========================================
+  const handleFetchRankings = async () => {
+    setRankingsStatus('loading');
+    try {
+      const rankings = await fetchFifaRankings();
+      setFifaRankings(rankings);
+      setRankingsStatus('idle');
+    } catch {
+      setRankingsStatus('error');
+    }
+  };
+
+  const getPoolAvgPoints = (pool) => {
+    if (!fifaRankings) return null;
+    const pts = pool.teams.map((t) => fifaRankings[t.id]).filter((p) => p != null);
+    if (pts.length === 0) return null;
+    return Math.round(pts.reduce((a, b) => a + b, 0) / pts.length);
+  };
 
   // ==========================================
   // SLIP-PICK SHUFFLE ENGINE
   // ==========================================
+  const getRandomPoolId = () => POOL_IDS[Math.floor(Math.random() * POOL_IDS.length)];
+
   const handleSlipPick = () => {
     setIsShuffling(true);
 
@@ -134,7 +125,7 @@ export default function SlipPickApp() {
       // Create a frantic visual shuffle effect
       setPlayers(prev => prev.map(p => ({
         ...p,
-        poolId: Math.floor(Math.random() * 8) + 1
+        poolId: getRandomPoolId()
       })));
     }, 100);
 
@@ -142,19 +133,17 @@ export default function SlipPickApp() {
       clearInterval(animationInterval);
 
       // Perform the actual fair mapping (Fisher-Yates shuffle on pools)
-      const poolIds = [1, 2, 3, 4, 5, 6, 7, 8];
+      const poolIds = [...POOL_IDS];
       for (let i = poolIds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [poolIds[i], poolIds[j]] = [poolIds[j], poolIds[i]];
       }
 
-      // Assign pools deterministically from shuffled poolIds
-      const assignedPlayers = players.map((player, index) => ({
+      // Assign pools from shuffled poolIds, preserving any name edits made before shuffle
+      setPlayers(prev => prev.map((player, index) => ({
         ...player,
         poolId: poolIds[index]
-      }));
-
-      setPlayers(assignedPlayers);
+      })));
       setIsShuffling(false);
       setHasAssigned(true);
       setActiveTab('dashboard');
@@ -166,9 +155,80 @@ export default function SlipPickApp() {
   };
 
   const resetDraft = () => {
-    setPlayers(INITIAL_PLAYERS);
+    setPlayers(prev => prev.map(p => ({ ...p, poolId: null, points: 0 })));
+    setTournamentResults(null);
+    setExportFeedback('');
     setHasAssigned(false);
     setActiveTab('pools');
+  };
+
+  const handleNameChange = (playerId, newName) => {
+    setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, name: newName } : p));
+  };
+
+  const getPoolOwnerName = (poolId) => {
+    return players.find((player) => player.poolId === poolId)?.name ?? 'Unassigned';
+  };
+
+  const buildResultSummary = () => {
+    if (!tournamentResults) {
+      return 'No tournament results are available yet.';
+    }
+
+    const lines = [
+      'World Cup 2026 Slip-Pick Results',
+      '',
+      `1st Place: ${tournamentResults.champion.name} ${tournamentResults.champion.flag} - ${getPoolOwnerName(tournamentResults.champion.poolId)} - $${PRIZES.first}`,
+      `2nd Place: ${tournamentResults.runnerUp.name} ${tournamentResults.runnerUp.flag} - ${getPoolOwnerName(tournamentResults.runnerUp.poolId)} - $${PRIZES.second}`,
+      `3rd Place: ${tournamentResults.third.name} ${tournamentResults.third.flag} - ${getPoolOwnerName(tournamentResults.third.poolId)} - $${PRIZES.third}`,
+      '',
+      'Assigned Pools:',
+      ...players.map((player) => {
+        const pool = POOLS_DATA.find((entry) => entry.id === player.poolId);
+        return `${player.name}: ${pool?.name ?? 'Unassigned'}`;
+      }),
+    ];
+
+    return lines.join('\n');
+  };
+
+  const handleExportResults = async () => {
+    const summary = buildResultSummary();
+
+    if (!tournamentResults) {
+      setExportFeedback('Draw pools first to generate results.');
+      return;
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'World Cup 2026 Slip-Pick Results',
+          text: summary,
+        });
+        setExportFeedback('Results shared.');
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(summary);
+        setExportFeedback('Results copied to clipboard.');
+        return;
+      }
+
+      const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'world-cup-slip-pick-results.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportFeedback('Results downloaded.');
+    } catch {
+      setExportFeedback('Could not export results.');
+    }
   };
 
   const getTierColor = (tier) => {
@@ -201,14 +261,14 @@ export default function SlipPickApp() {
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 font-bold px-6 py-3 rounded-xl shadow-lg transition-all transform active:scale-95 disabled:opacity-50"
               >
                 <Shuffle className={`w-5 h-5 ${isShuffling ? 'animate-spin' : ''}`} />
-                {isShuffling ? 'Drawing Slips...' : 'Execute Slip Pick!'}
+                {isShuffling ? 'Drawing Pools...' : 'Draw Pools'}
               </button>
             ) : (
               <button
                 onClick={resetDraft}
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 font-medium px-4 py-2 rounded-xl transition-all"
               >
-                <RefreshCw className="w-4 h-4" /> Re-Shuffle Pools
+                <RefreshCw className="w-4 h-4" /> Redraw Pools
               </button>
             )}
           </div>
@@ -217,6 +277,75 @@ export default function SlipPickApp() {
 
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-4 mt-8">
+
+        {!hasAssigned && (
+          <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-slate-700 rounded-3xl p-6 md:p-8 mb-8 shadow-xl">
+            <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.2em] text-amber-400 font-semibold">
+                  Custom Bracket Pools
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black text-white mt-2">
+                  Draw pools, lock the halves, and keep every path alive.
+                </h2>
+                <p className="text-slate-400 text-sm mt-3 max-w-xl">
+                  Each pool is built with 3 Left + 3 Right teams and six unique groups. The bracket advances only the top two from each group, so pool teammates can only meet in the Final.
+                </p>
+              </div>
+              <div className="bg-slate-900/70 border border-slate-700 rounded-2xl p-4 w-full sm:w-[260px]">
+                <div className="text-xs uppercase text-slate-400">Total Pot</div>
+                <div className="text-3xl font-black text-amber-400">${TOTAL_POT}</div>
+                <div className="mt-3 space-y-1 text-sm text-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span>Winner</span>
+                    <span>${PRIZES.first}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Runner-up</span>
+                    <span>${PRIZES.second}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Third</span>
+                    <span>${PRIZES.third}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Player name setup */}
+            <div className="mt-6">
+              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">Enter Player Names</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {players.map((player) => (
+                  <input
+                    key={player.id}
+                    type="text"
+                    value={player.name}
+                    disabled={isShuffling}
+                    onChange={(e) => handleNameChange(player.id, e.target.value)}
+                    placeholder={`Player ${player.id}`}
+                    className="bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-40 transition-all"
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleSlipPick}
+                disabled={isShuffling}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 font-bold px-6 py-3 rounded-xl shadow-lg transition-all transform active:scale-95 disabled:opacity-50"
+              >
+                <Shuffle className={`w-5 h-5 ${isShuffling ? 'animate-spin' : ''}`} />
+                {isShuffling ? 'Drawing Pools...' : 'Draw Pools'}
+              </button>
+              <button
+                onClick={() => setActiveTab('pools')}
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 font-medium px-6 py-3 rounded-xl transition-all"
+              >
+                <Layers className="w-4 h-4" /> Preview Pools
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Fairness Guarantee Notice */}
         <section className="bg-gradient-to-br from-indigo-950 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 mb-8 flex flex-col md:flex-row gap-4 items-start">
@@ -228,7 +357,7 @@ export default function SlipPickApp() {
               Mathematical Fairness Blueprint Activated
             </h3>
             <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-              To prevent players from knocking their own teams out early, this app enforces a strict rule algorithm: Every drawn slip contains exactly <strong className="text-white">6 teams</strong> structurally distributed across <strong className="text-white">6 unique groups</strong> and split perfectly <strong className="text-white">3-3 between Left & Right Tournament Bracket Halves</strong>. No overlapping groups, maximum competitive longevity.
+              Each pool contains exactly <strong className="text-white">6 teams</strong> from <strong className="text-white">6 unique groups</strong>, split <strong className="text-white">3-3 between Left &amp; Right bracket halves</strong>. Pools follow the real 2026 World Cup bracket — only match results are simulated at random. Pool mates are kept in different bracket quarters where possible, meaning most can only meet in the Semi-finals or Final.
             </p>
           </div>
         </section>
@@ -257,27 +386,68 @@ export default function SlipPickApp() {
 
         {/* TAB 1: THE POOLS DISPLAY */}
         {activeTab === 'pools' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {POOLS_DATA.map((pool) => (
-              <div key={pool.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-md backdrop-blur-sm">
-                <div className="border-b border-slate-700 pb-2 mb-3">
-                  <h4 className="font-bold text-sm text-amber-400 truncate uppercase tracking-wide">{pool.name}</h4>
-                </div>
-                <div className="space-y-2">
-                  {pool.teams.map((team, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg text-xs border border-slate-800">
-                      <span className="font-medium truncate flex items-center gap-1.5">
-                        <span className="text-base">{team.flag}</span> {team.name}
-                      </span>
-                      <div className="flex gap-1 text-[10px]">
-                        <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">G: {team.group}</span>
-                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{team.half[0]}H</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div>
+            {/* Rankings status bar + refresh button */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs text-slate-500">
+                {rankingsStatus === 'loading' && (
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Fetching FIFA rankings…
+                  </span>
+                )}
+                {rankingsStatus === 'error' && (
+                  <span className="text-red-400">Could not load FIFA rankings.</span>
+                )}
+                {rankingsStatus === 'idle' && fifaRankings && (
+                  <span className="text-slate-500">FIFA ranking points shown per team.</span>
+                )}
               </div>
-            ))}
+              <button
+                onClick={handleFetchRankings}
+                disabled={rankingsStatus === 'loading'}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${rankingsStatus === 'loading' ? 'animate-spin' : ''}`} />
+                Refresh FIFA Rankings
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {POOLS_DATA.map((pool) => {
+                const avgPts = getPoolAvgPoints(pool);
+                return (
+                  <div key={pool.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-md backdrop-blur-sm">
+                    <div className="border-b border-slate-700 pb-2 mb-3 flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-sm text-amber-400 truncate uppercase tracking-wide">{pool.name}</h4>
+                      <span className="shrink-0 text-[10px] font-semibold text-slate-300 bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded">
+                        {avgPts != null ? `Avg ${avgPts.toLocaleString()}` : '—'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {pool.teams.map((team, idx) => {
+                        const pts = fifaRankings?.[team.id];
+                        return (
+                          <div key={idx} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg text-xs border border-slate-800">
+                            <span className="font-medium truncate flex items-center gap-1.5">
+                              <span className="text-base">{team.flag}</span> {team.name}
+                            </span>
+                            <div className="flex gap-1 text-[10px] shrink-0">
+                              <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">G: {team.group}</span>
+                              <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{team.half[0]}H</span>
+                              {pts != null && (
+                                <span className="bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700/50 font-mono">
+                                  {Math.round(pts).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -287,9 +457,9 @@ export default function SlipPickApp() {
             {!hasAssigned ? (
               <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
                 <Shuffle className="w-12 h-12 text-slate-600 mx-auto mb-3 animate-pulse" />
-                <h3 className="text-lg font-bold text-slate-400">No Slips Drawn Yet</h3>
+                <h3 className="text-lg font-bold text-slate-400">No Pools Drawn Yet</h3>
                 <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
-                  Click the "Execute Slip Pick" button at the top to randomly allocate tournament pools to your 8 players.
+                  Click the "Draw Pools" button to randomly allocate tournament pools to your 8 players.
                 </p>
               </div>
             ) : (
@@ -305,59 +475,88 @@ export default function SlipPickApp() {
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
                         <div className="font-semibold text-amber-400">1st — ${PRIZES.first}</div>
                         <div className="text-slate-300">{tournamentResults.champion.name} • {tournamentResults.champion.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.champion.poolId)?.name ?? 'Unassigned'}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.champion.poolId)}</div>
                       </div>
 
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
                         <div className="font-semibold text-slate-300">2nd — ${PRIZES.second}</div>
                         <div className="text-slate-300">{tournamentResults.runnerUp.name} • {tournamentResults.runnerUp.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.runnerUp.poolId)?.name ?? 'Unassigned'}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.runnerUp.poolId)}</div>
                       </div>
 
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
                         <div className="font-semibold text-slate-300">3rd — ${PRIZES.third}</div>
                         <div className="text-slate-300">{tournamentResults.third.name} • {tournamentResults.third.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {players.find(pl => pl.poolId === tournamentResults.third.poolId)?.name ?? 'Unassigned'}</div>
+                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.third.poolId)}</div>
                       </div>
                     </div>
                   )}
-                  <button className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all">
+                  <button
+                    onClick={handleExportResults}
+                    className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
+                  >
                     <Share2 className="w-3.5 h-3.5" /> Export Results Sheet
                   </button>
+                  {exportFeedback && (
+                    <p className="mt-2 text-xs text-slate-400">{exportFeedback}</p>
+                  )}
                 </div>
 
                 {/* Individual Cards Grid */}
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                   {players.map((player) => {
                     const pool = POOLS_DATA.find(p => p.id === player.poolId);
+                    const avgPts = pool ? getPoolAvgPoints(pool) : null;
                     return (
                       <div key={player.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden transition-all hover:border-slate-600">
                         <div>
                           <div className="flex justify-between items-start border-b border-slate-700 pb-3 mb-3">
                             <div>
-                              <h3 className="font-black text-lg text-white">{player.name}</h3>
+                              <input
+                                type="text"
+                                value={player.name}
+                                onChange={(e) => handleNameChange(player.id, e.target.value)}
+                                className="font-black text-lg text-white bg-transparent border-b border-transparent hover:border-slate-600 focus:border-amber-500 focus:outline-none w-full transition-all"
+                              />
                               <p className="text-[11px] text-amber-400 font-medium truncate max-w-[180px]">{pool?.name}</p>
                             </div>
-                            <span className="bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
-                              Pool {player.poolId ?? '-'}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
+                                Pool {player.poolId ?? '-'}
+                              </span>
+                              {avgPts != null && (
+                                <span className="text-[10px] text-indigo-300 font-semibold">
+                                  Avg {avgPts.toLocaleString()} pts
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2">
-                            {pool?.teams.map((team, idx) => (
-                              <div key={idx} className="bg-slate-900/60 p-2 rounded-xl border border-slate-850 flex flex-col justify-between text-xs min-h-[64px]">
-                                <div className="flex items-center gap-1.5 font-bold text-slate-200">
-                                  <span>{team.flag}</span>
-                                  <span className="truncate">{team.name}</span>
+                            {pool?.teams.map((team, idx) => {
+                              const pts = fifaRankings?.[team.id];
+                              return (
+                                <div key={idx} className="bg-slate-900/60 p-2 rounded-xl border border-slate-850 flex flex-col justify-between text-xs min-h-[64px]">
+                                  <div className="flex items-center gap-1.5 font-bold text-slate-200">
+                                    <span>{team.flag}</span>
+                                    <span className="truncate">{team.name}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-800/50">
+                                    <span className="text-[10px] text-slate-400">Grp {team.group} • {team.half[0]}H</span>
+                                    <div className="flex items-center gap-1">
+                                      {pts != null && (
+                                        <span className="text-[9px] px-1 py-px rounded font-mono text-indigo-300 bg-indigo-900/40 border border-indigo-700/40">
+                                          {Math.round(pts).toLocaleString()}
+                                        </span>
+                                      )}
+                                      <span className={`text-[9px] px-1.5 rounded-full font-semibold border ${getTierColor(team.tier)}`}>
+                                        {team.tier.split(' ')[0]}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-800/50">
-                                  <span className="text-[10px] text-slate-400">Grp {team.group} • {team.half[0]}H</span>
-                                  <span className={`text-[9px] px-1.5 rounded-full font-semibold border ${getTierColor(team.tier)}`}>
-                                    {team.tier.split(' ')[0]}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
