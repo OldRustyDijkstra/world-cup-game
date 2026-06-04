@@ -15,7 +15,7 @@ export const TEAMS = [
 		flag: "🇧🇦",
 	},
 	{ id: "brazil", name: "Brazil", group: "C", half: "Left", tier: "Top Tier", flag: "🇧🇷" },
-	{ id: "scotland", name: "Scotland", group: "C", half: "Left", tier: "Mid Tier", flag: "🏴" },
+	{ id: "scotland", name: "Scotland", group: "C", half: "Left", tier: "Mid Tier", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
 	{ id: "haiti", name: "Haiti", group: "C", half: "Left", tier: "Underdog", flag: "🇭🇹" },
 	{ id: "morocco", name: "Morocco", group: "C", half: "Left", tier: "Top Tier", flag: "🇲🇦" },
 	{ id: "united-states", name: "United States", group: "D", half: "Left", tier: "Top Tier", flag: "🇺🇸" },
@@ -51,7 +51,7 @@ export const TEAMS = [
 	{ id: "jamaica", name: "Jamaica", group: "K", half: "Right", tier: "Underdog", flag: "🇯🇲" },
 	{ id: "uzbekistan", name: "Uzbekistan", group: "K", half: "Right", tier: "Underdog", flag: "🇺🇿" },
 	{ id: "croatia", name: "Croatia", group: "L", half: "Right", tier: "Top Tier", flag: "🇭🇷" },
-	{ id: "england", name: "England", group: "L", half: "Right", tier: "Top Tier", flag: "🏴" },
+	{ id: "england", name: "England", group: "L", half: "Right", tier: "Top Tier", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
 	{ id: "ghana", name: "Ghana", group: "L", half: "Right", tier: "Mid Tier", flag: "🇬🇭" },
 	{ id: "panama", name: "Panama", group: "L", half: "Right", tier: "Underdog", flag: "🇵🇦" },
 ];

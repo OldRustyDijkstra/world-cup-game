@@ -4,6 +4,7 @@ import { simulateTournament } from './BracketSimulator.jsx';
 import { TEAMS } from './teams';
 import { POOLS } from './pools';
 import { fetchFifaRankings } from './fifaRankings';
+import rankingsFileCache from './fifaRankingsCache.json';
 
 // ==========================================
 // DATA STRUCTURES
@@ -44,8 +45,14 @@ export default function SlipPickApp() {
     catch { return false; }
   });
   const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
-  const PRIZES = { first: 25, second: 10, third: 5 };
-  const TOTAL_POT = PRIZES.first + PRIZES.second + PRIZES.third;
+  const [prizes, setPrizes] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('wc26_prizes'));
+      if (stored && stored.first >= 1 && stored.second >= 1 && stored.third >= 1) return stored;
+    } catch { /* ignore malformed localStorage */ }
+    return { first: 25, second: 10, third: 5 };
+  });
+  const TOTAL_POT = prizes.first + prizes.second + prizes.third;
   const [tournamentResults, setTournamentResults] = useState(() => {
     try { return JSON.parse(localStorage.getItem('wc26_tournamentResults')); }
     catch { return null; }
@@ -58,9 +65,13 @@ export default function SlipPickApp() {
       const stored = localStorage.getItem('wc26_fifaRankings');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed?.rankings && typeof parsed.rankings === 'object') return parsed.rankings;
+        if (parsed?.rankings && typeof parsed.rankings === 'object' && Object.keys(parsed.rankings).length > 0)
+          return parsed.rankings;
       }
-    } catch {}
+    } catch { /* ignore malformed localStorage */ }
+    // Fall back to the bundled static cache (src/fifaRankingsCache.json)
+    if (rankingsFileCache?.rankings && Object.keys(rankingsFileCache.rankings).length > 0)
+      return rankingsFileCache.rankings;
     return null;
   });
   const [rankingsStatus, setRankingsStatus] = useState('idle'); // 'idle' | 'loading' | 'error'
@@ -75,12 +86,6 @@ export default function SlipPickApp() {
     }
   }, [fifaRankings]);
 
-  // Auto-fetch FIFA rankings on first load if not cached
-  useEffect(() => {
-    if (!fifaRankings) handleFetchRankings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Sync to localStorage — skip player sync during animation to avoid saving transient state
   useEffect(() => {
     if (!isShuffling) localStorage.setItem('wc26_players', JSON.stringify(players));
@@ -91,6 +96,17 @@ export default function SlipPickApp() {
   useEffect(() => {
     localStorage.setItem('wc26_tournamentResults', JSON.stringify(tournamentResults));
   }, [tournamentResults]);
+  useEffect(() => {
+    localStorage.setItem('wc26_prizes', JSON.stringify(prizes));
+  }, [prizes]);
+
+  // ==========================================
+  // PRIZES
+  // ==========================================
+  function handlePrizeChange(place, raw) {
+    const val = parseInt(raw, 10);
+    if (!isNaN(val) && val >= 1) setPrizes(prev => ({ ...prev, [place]: val }));
+  }
 
   // ==========================================
   // FIFA RANKINGS
@@ -101,10 +117,24 @@ export default function SlipPickApp() {
       const rankings = await fetchFifaRankings();
       setFifaRankings(rankings);
       setRankingsStatus('idle');
+      // Persist to src/fifaRankingsCache.json via the Vite dev/preview server plugin.
+      // Silently ignored when running from a static host (no server-side endpoint).
+      fetch('/api/save-rankings-cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fetchedAt: new Date().toISOString(), rankings }),
+      }).catch(() => {});
     } catch {
       setRankingsStatus('error');
     }
   };
+
+  // Auto-fetch FIFA rankings on first load if not cached or empty
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!fifaRankings || Object.keys(fifaRankings).length === 0) handleFetchRankings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getPoolAvgPoints = (pool) => {
     if (!fifaRankings) return null;
@@ -178,9 +208,9 @@ export default function SlipPickApp() {
     const lines = [
       'World Cup 2026 Slip-Pick Results',
       '',
-      `1st Place: ${tournamentResults.champion.name} ${tournamentResults.champion.flag} - ${getPoolOwnerName(tournamentResults.champion.poolId)} - $${PRIZES.first}`,
-      `2nd Place: ${tournamentResults.runnerUp.name} ${tournamentResults.runnerUp.flag} - ${getPoolOwnerName(tournamentResults.runnerUp.poolId)} - $${PRIZES.second}`,
-      `3rd Place: ${tournamentResults.third.name} ${tournamentResults.third.flag} - ${getPoolOwnerName(tournamentResults.third.poolId)} - $${PRIZES.third}`,
+      `1st Place: ${tournamentResults.champion.name} ${tournamentResults.champion.flag} - ${getPoolOwnerName(tournamentResults.champion.poolId)} - $${prizes.first}`,
+      `2nd Place: ${tournamentResults.runnerUp.name} ${tournamentResults.runnerUp.flag} - ${getPoolOwnerName(tournamentResults.runnerUp.poolId)} - $${prizes.second}`,
+      `3rd Place: ${tournamentResults.third.name} ${tournamentResults.third.flag} - ${getPoolOwnerName(tournamentResults.third.poolId)} - $${prizes.third}`,
       '',
       'Assigned Pools:',
       ...players.map((player) => {
@@ -298,15 +328,15 @@ export default function SlipPickApp() {
                 <div className="mt-3 space-y-1 text-sm text-slate-200">
                   <div className="flex items-center justify-between">
                     <span>Winner</span>
-                    <span>${PRIZES.first}</span>
+                    <span>${prizes.first}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Runner-up</span>
-                    <span>${PRIZES.second}</span>
+                    <span>${prizes.second}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Third</span>
-                    <span>${PRIZES.third}</span>
+                    <span>${prizes.third}</span>
                   </div>
                 </div>
               </div>
@@ -479,19 +509,19 @@ export default function SlipPickApp() {
                   ) : (
                     <div className="space-y-3 text-sm">
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-amber-400">1st — ${PRIZES.first}</div>
+                        <div className="font-semibold text-amber-400">1st — ${prizes.first}</div>
                         <div className="text-slate-300">{tournamentResults.champion.name} • {tournamentResults.champion.flag}</div>
                         <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.champion.poolId)}</div>
                       </div>
 
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-slate-300">2nd — ${PRIZES.second}</div>
+                        <div className="font-semibold text-slate-300">2nd — ${prizes.second}</div>
                         <div className="text-slate-300">{tournamentResults.runnerUp.name} • {tournamentResults.runnerUp.flag}</div>
                         <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.runnerUp.poolId)}</div>
                       </div>
 
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-slate-300">3rd — ${PRIZES.third}</div>
+                        <div className="font-semibold text-slate-300">3rd — ${prizes.third}</div>
                         <div className="text-slate-300">{tournamentResults.third.name} • {tournamentResults.third.flag}</div>
                         <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.third.poolId)}</div>
                       </div>
@@ -578,13 +608,58 @@ export default function SlipPickApp() {
         {/* TAB 3: PRIZE RULES */}
         {activeTab === 'scoring' && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-2xl mx-auto">
-            <h3 className="text-xl font-bold text-white mb-4">🏆 Prize Rules</h3>
-            <p className="text-slate-400 text-sm mb-4">This app awards prizes to the owners of the top three teams after a simulated tournament run.</p>
-            <ul className="list-disc ml-5 text-slate-300">
-              <li>1st place: ${PRIZES.first}</li>
-              <li>2nd place: ${PRIZES.second}</li>
-              <li>3rd place: ${PRIZES.third}</li>
-            </ul>
+            <h3 className="text-xl font-bold text-white mb-2">🏆 Prize Rules</h3>
+            <p className="text-slate-400 text-sm mb-6">Prizes are awarded to the owners of the top three finishing teams.</p>
+
+            {!hasAssigned ? (
+              <div className="space-y-4">
+                <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold mb-2">Configure prizes before the draw</p>
+                {[
+                  { place: 'first', label: '🥇 1st Place', color: 'text-amber-400' },
+                  { place: 'second', label: '🥈 2nd Place', color: 'text-slate-300' },
+                  { place: 'third', label: '🥉 3rd Place', color: 'text-orange-400' },
+                ].map(({ place, label, color }) => (
+                  <div key={place} className="flex items-center justify-between gap-4 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3">
+                    <span className={`font-semibold ${color}`}>{label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={prizes[place]}
+                        onChange={e => handlePrizeChange(place, e.target.value)}
+                        onBlur={e => { if (!e.target.value || parseInt(e.target.value, 10) < 1) handlePrizeChange(place, prizes[place]); }}
+                        className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-right text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-2 border-t border-slate-700 text-sm font-semibold text-slate-300 mt-2">
+                  <span>Total pot</span>
+                  <span className="text-white">${TOTAL_POT}</span>
+                </div>
+              </div>
+            ) : (
+              <ul className="space-y-2 text-slate-300">
+                <li className="flex justify-between items-center bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3">
+                  <span className="font-semibold text-amber-400">🥇 1st Place</span>
+                  <span className="font-bold text-white">${prizes.first}</span>
+                </li>
+                <li className="flex justify-between items-center bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3">
+                  <span className="font-semibold text-slate-300">🥈 2nd Place</span>
+                  <span className="font-bold text-white">${prizes.second}</span>
+                </li>
+                <li className="flex justify-between items-center bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3">
+                  <span className="font-semibold text-orange-400">🥉 3rd Place</span>
+                  <span className="font-bold text-white">${prizes.third}</span>
+                </li>
+                <li className="flex justify-between items-center pt-2 border-t border-slate-700 text-sm font-semibold text-slate-400">
+                  <span>Total pot</span>
+                  <span className="text-white">${TOTAL_POT}</span>
+                </li>
+              </ul>
+            )}
           </div>
         )}
 

@@ -34,6 +34,7 @@ There is no test suite.
 
 | Key | Contents |
 |-----|----------|
+| `wc26_prizes` | `{ first, second, third }` — prize amounts in whole dollars (defaults: 25, 10, 5) |
 | `wc26_players` | Array of 8 player objects (names + poolId assignments) |
 | `wc26_hasAssigned` | Boolean — whether the draw has happened |
 | `wc26_tournamentResults` | `{ champion, runnerUp, third, groupStage, matchesR32, matchesR16, matchesQF, matchesSF, matchThird, matchFinal }` or null |
@@ -64,9 +65,9 @@ exportFeedback   // UI string for share/copy/download feedback
 
 ## Extending
 
-**Change prize amounts** — edit `PRIZES` in `SlipPickApp` in `App.jsx`:
+**Change prize amounts** — prize amounts are configurable via the **Prize Rules** tab in the UI (editable before the draw only). Defaults are `{ first: 25, second: 10, third: 5 }` stored in localStorage `wc26_prizes`. To override in code, change the default in the `useState` initialiser for `prizes` in `SlipPickApp` in `App.jsx`:
 ```js
-const PRIZES = { first: 25, second: 10, third: 5 };
+return { first: 25, second: 10, third: 5 }; // <- default
 ```
 
 **Add/change teams** — edit `src/teams.js`. Each entry needs: `id` (kebab-case), `name`, `group` (A–L), `half` (`"Left"` or `"Right"`), `tier` (`"Top Tier"` / `"Mid Tier"` / `"Underdog"`), `flag` (emoji). Add corresponding entry to `FIFA_NAME_MAP` in `fifaRankings.js`.
