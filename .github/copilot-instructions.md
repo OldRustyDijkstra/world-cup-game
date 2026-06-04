@@ -27,7 +27,7 @@ There is no test suite.
 
 1. `pools.js` stores pools as arrays of kebab-case team ID strings.
 2. `App.jsx` resolves those IDs against `TEAMS` at startup into `POOLS_DATA` (full team objects).
-3. `POOLS_DATA` is passed to `simulateTournament()`, which attaches `poolId` to each team object and returns `{ champion, runnerUp, third, r32 }`.
+3. `POOLS_DATA` is passed to `simulateTournament()`, which attaches `poolId` to each team object and returns `{ champion, runnerUp, third, groupStage, matchesR32, matchesR16, matchesQF, matchesSF, matchThird, matchFinal }`.
 4. Prize attribution works by reading `.poolId` on the result team objects and looking up the owning player.
 
 ### localStorage keys
@@ -36,7 +36,7 @@ There is no test suite.
 |-----|----------|
 | `wc26_players` | Array of 8 player objects (names + poolId assignments) |
 | `wc26_hasAssigned` | Boolean — whether the draw has happened |
-| `wc26_tournamentResults` | `{ champion, runnerUp, third, r32 }` or null |
+| `wc26_tournamentResults` | `{ champion, runnerUp, third, groupStage, matchesR32, matchesR16, matchesQF, matchesSF, matchThird, matchFinal }` or null |
 | `wc26_fifaRankings` | `{ fetchedAt, rankings: { [teamId]: points } }` |
 
 Player state is **not** written to localStorage while `isShuffling` is true, to avoid saving transient animation state.
@@ -47,7 +47,7 @@ Player state is **not** written to localStorage while `isShuffling` is true, to 
 players          // [{ id, name, poolId, points }] × 8 — names editable, poolId set after draw
 isShuffling      // bool — true during 2s animation; blocks name edits + localStorage writes
 hasAssigned      // bool — true once draw is complete
-tournamentResults // { champion, runnerUp, third, r32 } | null
+tournamentResults // { champion, runnerUp, third, groupStage, matchesR32, matchesR16, matchesQF, matchesSF, matchThird, matchFinal } | null
 fifaRankings     // { [teamId]: number } | null — FIFA points per team
 rankingsStatus   // 'idle' | 'loading' | 'error'
 activeTab        // 'pools' | 'dashboard' | 'scoring'
@@ -88,7 +88,7 @@ All team references use kebab-case IDs (e.g., `"south-korea"`, `"united-states"`
 The rankings fetch hits `/api/fifa-ranking/*`, which Vite proxies to `https://inside.fifa.com/api/live-world-ranking/*`. This proxy is active in `dev` and `preview` only — it does **not** work when serving `dist/` from a static host.
 
 ### Bracket simulator
-`BracketSimulator.jsx` implements the **fixed** 2026 FIFA bracket (M73–M104). Match pairings are hardcoded and must not change. Only two things are random: which team finishes 1st vs 2nd in each group, and each individual knockout match outcome (50/50 `coinFlip`). See `skill-world-cup-bracket-logic.md` at the repo root for the authoritative bracket structure, quarter map, and pool composition rules.
+`BracketSimulator.jsx` implements the **fixed** 2026 FIFA bracket (M73–M104). Match pairings are hardcoded and must not change. Three things are random: which team finishes 1st/2nd/3rd in each group (Fisher-Yates shuffle), which 8 of 12 third-place teams qualify and how they are seeded into R32, and each individual knockout match outcome (50/50 `coinFlip`). All 16 R32 matches are contested — there are no byes. See `.github/instructions/bracket-logic.instructions.md` for the authoritative bracket structure, quarter map, pool composition rules, and fairness analysis.
 
 ### Pool composition rules (for changes to `pools.js`)
 - One team per group (A–L)

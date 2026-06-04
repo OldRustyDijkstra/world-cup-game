@@ -614,19 +614,10 @@ export default function SlipPickApp() {
             <div className={`bg-slate-800/60 border rounded-xl p-3 flex flex-col gap-1 ${accent ? 'border-amber-500/30' : 'border-slate-700/60'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-mono font-semibold text-slate-400">{match.label}</span>
-                {match.isBye && (
-                  <span className="text-[9px] uppercase tracking-wide text-emerald-400 font-bold bg-emerald-900/30 border border-emerald-700/40 px-1.5 py-0.5 rounded">BYE</span>
-                )}
               </div>
-              {match.isBye ? (
-                <TeamRow team={match.teamA} isWinner={true} />
-              ) : (
-                <>
-                  <TeamRow team={match.teamA} isWinner={match.winner === match.teamA} />
-                  <div className="text-center text-[10px] text-slate-600 font-semibold tracking-widest">VS</div>
-                  <TeamRow team={match.teamB} isWinner={match.winner === match.teamB} />
-                </>
-              )}
+              <TeamRow team={match.teamA} isWinner={match.winner === match.teamA} />
+              <div className="text-center text-[10px] text-slate-600 font-semibold tracking-widest">VS</div>
+              <TeamRow team={match.teamB} isWinner={match.winner === match.teamB} />
             </div>
           );
 
@@ -667,9 +658,9 @@ export default function SlipPickApp() {
             <div className="space-y-8">
               {/* Group Stage */}
               <section>
-                <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Group Stage — Qualifiers</h4>
+                <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Group Stage — Qualifiers (1st, 2nd + best 8 of 12 third-place ★)</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {tournamentResults.groupStage.map(({ group, first, second }) => (
+                  {tournamentResults.groupStage.map(({ group, first, second, third: thirdTeam, thirdQualified }) => (
                     <div key={group} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3">
                       <div className="text-[11px] font-bold text-amber-400 mb-2 uppercase tracking-wide">Group {group}</div>
                       <div className="space-y-1.5">
@@ -689,6 +680,19 @@ export default function SlipPickApp() {
                             <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(second.poolId)}</div>
                           </div>
                         </div>
+                        {thirdTeam && (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className={`text-[9px] font-bold w-5 shrink-0 ${thirdQualified ? 'text-sky-400' : 'text-slate-600'}`}>3rd</span>
+                            <span className="text-base shrink-0">{thirdTeam.flag}</span>
+                            <div className="min-w-0">
+                              <div className={`font-medium truncate ${thirdQualified ? 'text-slate-300' : 'text-slate-500 line-through'}`}>{thirdTeam.name}</div>
+                              <div className="text-[9px] text-slate-500 truncate">
+                                {thirdQualified ? getPoolOwnerName(thirdTeam.poolId) : 'Eliminated'}
+                              </div>
+                            </div>
+                            {thirdQualified && <span className="text-sky-400 text-[9px] font-bold shrink-0">★</span>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

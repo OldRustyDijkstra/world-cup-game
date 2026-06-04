@@ -6,7 +6,7 @@ A React single-page app for running a fair World Cup lottery with friends. Eight
 
 - **Slip-Pick Draw** — animated Fisher-Yates shuffle randomly assigns one of 8 balanced pools to each of 8 players
 - **Balanced Pools** — each pool has 6 teams from 6 unique groups, split evenly across Left (A–F) and Right (G–L) bracket halves, with FIFA points balanced within ±150 pts of the overall average
-- **Real 2026 Bracket Structure** — the knockout simulator follows the official fixed bracket (R32 → R16 → QF → SF → Final); only match results are random, not the match pairings
+- **Real 2026 Bracket Structure** — the knockout simulator follows the official fixed bracket (R32 → R16 → QF → SF → Final); all 32 teams play in R32 (24 group qualifiers + best 8 of 12 third-place finishers); only match results are random, not the match pairings
 - **Prize Tracking** — $25 / $10 / $5 for 1st / 2nd / 3rd; shows which player owns the winning team
 - **FIFA Ranking Points** — fetches live FIFA ranking points from the official FIFA API on first load; each team displays its current points, and each pool card shows the average across its 6 teams for fairness comparison
 - **Refresh Rankings** — a "Refresh FIFA Rankings" button re-fetches and updates the cache at any time
@@ -43,7 +43,7 @@ src/
 |--------------------------|--------------------------------------------|
 | `wc26_players`           | Array of 8 players (names + pool IDs)      |
 | `wc26_hasAssigned`       | Boolean — whether pools have been drawn    |
-| `wc26_tournamentResults` | `{ champion, runnerUp, third, r32 }` or null |
+| `wc26_tournamentResults` | `{ champion, runnerUp, third, groupStage, matchesR32, matchesR16, matchesQF, matchesSF, matchThird, matchFinal }` or null |
 
 > Animation frames during the draw are **not** written to storage to avoid saving transient state.
 
