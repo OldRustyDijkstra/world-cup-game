@@ -202,6 +202,73 @@ export default function SlipPickApp() {
     return players.find((player) => player.poolId === poolId)?.name ?? 'Unassigned';
   };
 
+  const buildPlayerAssignmentSheet = () => {
+    const lines = [
+      '🌍 World Cup 2026 Slip-Pick — Pool Assignments',
+      '='.repeat(48),
+      '',
+    ];
+
+    players.forEach((player) => {
+      const pool = POOLS_DATA.find((p) => p.id === player.poolId);
+      const avgPts = pool ? getPoolAvgPoints(pool) : null;
+      lines.push(`👤 ${player.name}`);
+      lines.push(`   Pool ${player.poolId ?? '-'}${pool ? `: ${pool.name}` : ''}${avgPts != null ? ` (Avg ${avgPts.toLocaleString()} pts)` : ''}`);
+      if (pool) {
+        pool.teams.forEach((team) => {
+          const pts = fifaRankings?.[team.id];
+          const ptsStr = pts != null ? `  ${Math.round(pts).toLocaleString()} pts` : '';
+          lines.push(`   ${team.flag} ${team.name.padEnd(22)} Grp ${team.group} • ${team.half[0]}H • ${team.tier}${ptsStr}`);
+        });
+      }
+      lines.push('');
+    });
+
+    if (tournamentResults) {
+      lines.push('-'.repeat(48));
+      lines.push('🏅 Prize Winners');
+      lines.push(`🥇 1st ($${prizes.first}): ${tournamentResults.champion.flag} ${tournamentResults.champion.name} — ${getPoolOwnerName(tournamentResults.champion.poolId)}`);
+      lines.push(`🥈 2nd ($${prizes.second}): ${tournamentResults.runnerUp.flag} ${tournamentResults.runnerUp.name} — ${getPoolOwnerName(tournamentResults.runnerUp.poolId)}`);
+      lines.push(`🥉 3rd ($${prizes.third}): ${tournamentResults.third.flag} ${tournamentResults.third.name} — ${getPoolOwnerName(tournamentResults.third.poolId)}`);
+    }
+
+    return lines.join('\n');
+  };
+
+  const [assignmentFeedback, setAssignmentFeedback] = useState('');
+
+  const handleExportAssignments = async () => {
+    if (!hasAssigned) {
+      setAssignmentFeedback('Draw pools first to export assignments.');
+      return;
+    }
+    const sheet = buildPlayerAssignmentSheet();
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'World Cup 2026 Pool Assignments', text: sheet });
+        setAssignmentFeedback('Assignments shared.');
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(sheet);
+        setAssignmentFeedback('Assignments copied to clipboard.');
+        return;
+      }
+      const blob = new Blob([sheet], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'world-cup-pool-assignments.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setAssignmentFeedback('Assignments downloaded.');
+    } catch {
+      setAssignmentFeedback('Could not export assignments.');
+    }
+  };
+
   const buildResultSummary = () => {
     if (!tournamentResults) {
       return 'No tournament results are available yet.';
@@ -560,7 +627,22 @@ export default function SlipPickApp() {
                 </div>
 
                 {/* Individual Cards Grid */}
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="lg:col-span-2 flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Player Assignments</h3>
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        onClick={handleExportAssignments}
+                        className="flex items-center gap-2 text-xs font-medium text-slate-300 bg-slate-800/60 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-xl transition-all"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Export Pool Assignments
+                      </button>
+                      {assignmentFeedback && (
+                        <p className="text-[10px] text-slate-400">{assignmentFeedback}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {players.map((player) => {
                     const pool = POOLS_DATA.find(p => p.id === player.poolId);
                     const avgPts = pool ? getPoolAvgPoints(pool) : null;
@@ -619,6 +701,7 @@ export default function SlipPickApp() {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
 
               </div>
