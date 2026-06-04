@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw, Trophy } from 'lucide-react';
 import { simulateTournament } from './BracketSimulator.jsx';
 import { TEAMS } from './teams';
@@ -75,6 +75,7 @@ export default function SlipPickApp() {
     return null;
   });
   const [rankingsStatus, setRankingsStatus] = useState('idle'); // 'idle' | 'loading' | 'error'
+  const tabsRef = useRef(null);
 
   // Persist FIFA rankings to localStorage whenever they change
   useEffect(() => {
@@ -177,10 +178,6 @@ export default function SlipPickApp() {
       setIsShuffling(false);
       setHasAssigned(true);
       setActiveTab('dashboard');
-
-      // Run tournament simulation and store top-3 results
-      const results = simulateTournament(POOLS_DATA);
-      setTournamentResults(results);
     }, 2000);
   };
 
@@ -190,6 +187,11 @@ export default function SlipPickApp() {
     setExportFeedback('');
     setHasAssigned(false);
     setActiveTab('pools');
+  };
+
+  const handleSimulate = () => {
+    const results = simulateTournament(POOLS_DATA);
+    setTournamentResults(results);
   };
 
   const handleNameChange = (playerId, newName) => {
@@ -278,7 +280,7 @@ export default function SlipPickApp() {
             <span className="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
               World Cup 2026
             </span>
-            <h1 className="text-3xl font-black tracking-tight mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
               ⚽ SLIP-PICK Bracket Balancer
             </h1>
           </div>
@@ -368,7 +370,10 @@ export default function SlipPickApp() {
                 {isShuffling ? 'Drawing Pools...' : 'Draw Pools'}
               </button>
               <button
-                onClick={() => setActiveTab('pools')}
+                onClick={() => {
+                  setActiveTab('pools');
+                  tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
                 className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 font-medium px-6 py-3 rounded-xl transition-all"
               >
                 <Layers className="w-4 h-4" /> Preview Pools
@@ -393,30 +398,30 @@ export default function SlipPickApp() {
         </section>
 
         {/* Navigation Tabs */}
-        <div className="flex overflow-x-auto border-b border-slate-800 mb-6 gap-1">
+        <div ref={tabsRef} className="flex overflow-x-auto border-b border-slate-800 mb-6 gap-1">
           <button
             onClick={() => setActiveTab('pools')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'pools' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
-            <Layers className="w-4 h-4 inline mr-2" /> Pre-Configured Pools
+            <Layers className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Pre-Configured Pools</span>
           </button>
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'dashboard' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
-            <Award className="w-4 h-4 inline mr-2" /> Player Dashboards & Standings
+            <Award className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Player Dashboards &amp; Standings</span>
           </button>
           <button
             onClick={() => setActiveTab('bracket')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'bracket' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
-            <Trophy className="w-4 h-4 inline mr-2" /> Bracket
+            <Trophy className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Bracket</span>
           </button>
           <button
             onClick={() => setActiveTab('scoring')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'scoring' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
-            <HelpCircle className="w-4 h-4 inline mr-2" /> Scoring Rules
+            <HelpCircle className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Scoring Rules</span>
           </button>
         </div>
 
@@ -424,7 +429,7 @@ export default function SlipPickApp() {
         {activeTab === 'pools' && (
           <div>
             {/* Rankings status bar + refresh button */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <div className="text-xs text-slate-500">
                 {rankingsStatus === 'loading' && (
                   <span className="flex items-center gap-1.5 text-amber-400">
@@ -469,7 +474,7 @@ export default function SlipPickApp() {
                             </span>
                             <div className="flex gap-1 text-[10px] shrink-0">
                               <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">G: {team.group}</span>
-                              <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{team.half[0]}H</span>
+                              <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 hidden sm:inline-flex">{team.half[0]}H</span>
                               {pts != null && (
                                 <span className="bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700/50 font-mono">
                                   {Math.round(pts).toLocaleString()}
@@ -505,7 +510,15 @@ export default function SlipPickApp() {
                 <div className="lg:col-span-1 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-700 shadow-xl h-fit">
                   <h3 className="text-lg font-bold text-white mb-4">🏅 Prize Winners</h3>
                   {!tournamentResults ? (
-                    <p className="text-slate-400 text-sm">Prizes will be awarded after drawing slips.</p>
+                    <div className="text-center py-4 space-y-3">
+                      <p className="text-slate-400 text-sm">Run a simulation to preview prize winners, or enter the actual results once the tournament is played.</p>
+                      <button
+                        onClick={handleSimulate}
+                        className="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all"
+                      >
+                        <Trophy className="w-4 h-4" /> Simulate Matches
+                      </button>
+                    </div>
                   ) : (
                     <div className="space-y-3 text-sm">
                       <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
@@ -526,6 +539,14 @@ export default function SlipPickApp() {
                         <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.third.poolId)}</div>
                       </div>
                     </div>
+                  )}
+                  {tournamentResults && (
+                    <button
+                      onClick={handleSimulate}
+                      className="w-full mt-2 flex items-center justify-center gap-2 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Re-simulate
+                    </button>
                   )}
                   <button
                     onClick={handleExportResults}
@@ -709,10 +730,27 @@ export default function SlipPickApp() {
             return (
               <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
                 <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-slate-400">No Bracket Yet</h3>
-                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
-                  Click "Draw Pools" to simulate the tournament and see the full bracket here.
-                </p>
+                {hasAssigned ? (
+                  <>
+                    <h3 className="text-lg font-bold text-slate-300">Pools Drawn — Bracket Ready</h3>
+                    <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1 mb-5">
+                      Pools have been assigned. Run a simulation to preview how the bracket might play out, or wait for the real tournament results.
+                    </p>
+                    <button
+                      onClick={handleSimulate}
+                      className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-all shadow-lg"
+                    >
+                      <Trophy className="w-4 h-4" /> Simulate Matches
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-bold text-slate-400">No Bracket Yet</h3>
+                    <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
+                      Draw pools first, then come back here to simulate or enter the real match results.
+                    </p>
+                  </>
+                )}
               </div>
             );
           }
@@ -722,15 +760,34 @@ export default function SlipPickApp() {
               <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
                 <RefreshCw className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-slate-400">Outdated Simulation</h3>
-                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
+                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1 mb-5">
                   Click "Redraw Pools" to re-run the simulation and unlock the full match breakdown.
                 </p>
+                <button
+                  onClick={handleSimulate}
+                  className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-all shadow-lg"
+                >
+                  <Trophy className="w-4 h-4" /> Simulate Matches
+                </button>
               </div>
             );
           }
 
           return (
             <div className="space-y-8">
+              {/* Simulate toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/40 border border-slate-700/60 rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Simulation Preview</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Results are randomly simulated. Use for fun previews only.</p>
+                </div>
+                <button
+                  onClick={handleSimulate}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 hover:text-indigo-100 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Re-simulate
+                </button>
+              </div>
               {/* Group Stage */}
               <section>
                 <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Group Stage — Qualifiers (1st, 2nd + best 8 of 12 third-place ★)</h4>
@@ -774,9 +831,9 @@ export default function SlipPickApp() {
                 </div>
               </section>
 
-              <RoundSection title="Round of 32 (M73–M88)" matches={tournamentResults.matchesR32} cols="grid-cols-2 sm:grid-cols-4" />
-              <RoundSection title="Round of 16 (M89–M96)" matches={tournamentResults.matchesR16} cols="grid-cols-2 sm:grid-cols-4" />
-              <RoundSection title="Quarter-Finals" matches={tournamentResults.matchesQF} cols="grid-cols-2 sm:grid-cols-4" />
+              <RoundSection title="Round of 32 (M73–M88)" matches={tournamentResults.matchesR32} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+              <RoundSection title="Round of 16 (M89–M96)" matches={tournamentResults.matchesR16} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+              <RoundSection title="Quarter-Finals" matches={tournamentResults.matchesQF} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
               <RoundSection title="Semi-Finals" matches={tournamentResults.matchesSF} cols="grid-cols-1 sm:grid-cols-2" />
 
               {/* 3rd Place + Final */}
