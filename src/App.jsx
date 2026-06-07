@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Shuffle, Award, ShieldCheck, Layers, HelpCircle, Share2, RefreshCw, Trophy } from 'lucide-react';
-import { simulateTournament } from './BracketSimulator.jsx';
+import { buildBracket } from './BracketSimulator.jsx';
 import { TEAMS } from './teams';
 import { POOLS } from './pools';
 import { fetchFifaRankings } from './fifaRankings';
 import rankingsFileCache from './fifaRankingsCache.json';
+import actualResults from './actualResults.json';
 
 // ==========================================
 // DATA STRUCTURES
@@ -53,10 +54,12 @@ export default function SlipPickApp() {
     return { first: 25, second: 10, third: 5 };
   });
   const TOTAL_POT = prizes.first + prizes.second + prizes.third;
-  const [tournamentResults, setTournamentResults] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('wc26_tournamentResults')); }
-    catch { return null; }
-  });
+  // Display bracket: actual (played) results from the bundled file. Undecided
+  // matches render as TBD. Simulation fills only the TBD gaps (ephemeral) and
+  // never overrides an actual result.
+  const [tournamentResults, setTournamentResults] = useState(() =>
+    buildBracket(POOLS_DATA, actualResults, { simulate: false })
+  );
   const [exportFeedback, setExportFeedback] = useState('');
 
   // FIFA rankings: { [teamId]: points } | null
@@ -94,9 +97,6 @@ export default function SlipPickApp() {
   useEffect(() => {
     localStorage.setItem('wc26_hasAssigned', JSON.stringify(hasAssigned));
   }, [hasAssigned]);
-  useEffect(() => {
-    localStorage.setItem('wc26_tournamentResults', JSON.stringify(tournamentResults));
-  }, [tournamentResults]);
   useEffect(() => {
     localStorage.setItem('wc26_prizes', JSON.stringify(prizes));
   }, [prizes]);
@@ -181,17 +181,22 @@ export default function SlipPickApp() {
     }, 2000);
   };
 
-  const resetDraft = () => {
-    setPlayers(prev => prev.map(p => ({ ...p, poolId: null, points: 0 })));
-    setTournamentResults(null);
-    setExportFeedback('');
-    setHasAssigned(false);
-    setActiveTab('pools');
+  // Drop any simulated preview and show only the actual (played) results.
+  const showActualBracket = () => {
+    setTournamentResults(buildBracket(POOLS_DATA, actualResults, { simulate: false }));
   };
 
+  // Fill undecided (TBD) matches with a random preview — actual results are kept.
   const handleSimulate = () => {
-    const results = simulateTournament(POOLS_DATA);
-    setTournamentResults(results);
+    setTournamentResults(buildBracket(POOLS_DATA, actualResults, { simulate: true }));
+  };
+
+  // Re-shuffle player→pool assignments while keeping the actual played matches.
+  // The bracket stays populated; any simulated preview is reset to actual-only.
+  const handleRedraw = () => {
+    setExportFeedback('');
+    showActualBracket();
+    handleSlipPick();
   };
 
   const handleNameChange = (playerId, newName) => {
@@ -225,11 +230,14 @@ export default function SlipPickApp() {
     });
 
     if (tournamentResults) {
+      const prizeLine = (team, amount) =>
+        team ? `${team.flag} ${team.name} — ${getPoolOwnerName(team.poolId)}` : `TBD ($${amount} unawarded)`;
       lines.push('-'.repeat(48));
       lines.push('🏅 Prize Winners');
-      lines.push(`🥇 1st ($${prizes.first}): ${tournamentResults.champion.flag} ${tournamentResults.champion.name} — ${getPoolOwnerName(tournamentResults.champion.poolId)}`);
-      lines.push(`🥈 2nd ($${prizes.second}): ${tournamentResults.runnerUp.flag} ${tournamentResults.runnerUp.name} — ${getPoolOwnerName(tournamentResults.runnerUp.poolId)}`);
-      lines.push(`🥉 3rd ($${prizes.third}): ${tournamentResults.third.flag} ${tournamentResults.third.name} — ${getPoolOwnerName(tournamentResults.third.poolId)}`);
+      lines.push(`🥇 1st ($${prizes.first}): ${prizeLine(tournamentResults.champion, prizes.first)}`);
+      lines.push(`🥈 2nd ($${prizes.second}): ${prizeLine(tournamentResults.runnerUp, prizes.second)}`);
+      lines.push(`🥉 3rd ($${prizes.third}): ${prizeLine(tournamentResults.third, prizes.third)}`);
+      if (tournamentResults.simulatedAny) lines.push('(includes simulated preview for undecided matches)');
     }
 
     return lines.join('\n');
@@ -269,17 +277,81 @@ export default function SlipPickApp() {
     }
   };
 
+  // Build a Mermaid flowchart of the knockout bracket (actual or simulated),
+  // with winners marked (✓), TBD where undecided, and a highlighted podium.
+  const buildMermaidDiagram = () => {
+    const r = tournamentResults;
+    const safe = (s) => String(s).replace(/["[\]{}|<>]/g, '').trim();
+    const teamLabel = (t) => (t ? safe(`${t.flag} ${t.name}`) : 'TBD');
+    const winMark = (m, t) => (t && m.winner && t.id === m.winner.id ? '✓ ' : '');
+    const matchDecl = (m, id = m.label) =>
+      `  ${id}["${m.label}<br/>${winMark(m, m.teamA)}${teamLabel(m.teamA)}<br/>${winMark(m, m.teamB)}${teamLabel(m.teamB)}"]`;
+
+    const lines = ['flowchart LR'];
+
+    lines.push('  subgraph R32["Round of 32"]');
+    r.matchesR32.forEach((m) => lines.push(matchDecl(m)));
+    lines.push('  end');
+    lines.push('  subgraph R16["Round of 16"]');
+    r.matchesR16.forEach((m) => lines.push(matchDecl(m)));
+    lines.push('  end');
+    lines.push('  subgraph QFS["Quarter-Finals"]');
+    r.matchesQF.forEach((m) => lines.push(matchDecl(m)));
+    lines.push('  end');
+    lines.push('  subgraph SFS["Semi-Finals"]');
+    r.matchesSF.forEach((m) => lines.push(matchDecl(m)));
+    lines.push('  end');
+    lines.push('  subgraph FIN["Final & 3rd Place"]');
+    lines.push(matchDecl(r.matchThird, 'T3'));
+    lines.push(matchDecl(r.matchFinal, 'FINAL'));
+    lines.push('  end');
+
+    const feeds = [
+      ['M74', 'M89'], ['M77', 'M89'], ['M73', 'M90'], ['M75', 'M90'],
+      ['M76', 'M91'], ['M78', 'M91'], ['M79', 'M92'], ['M80', 'M92'],
+      ['M83', 'M93'], ['M84', 'M93'], ['M81', 'M94'], ['M82', 'M94'],
+      ['M86', 'M95'], ['M88', 'M95'], ['M85', 'M96'], ['M87', 'M96'],
+      ['M89', 'QF1'], ['M90', 'QF1'], ['M93', 'QF2'], ['M94', 'QF2'],
+      ['M91', 'QF3'], ['M92', 'QF3'], ['M95', 'QF4'], ['M96', 'QF4'],
+      ['QF1', 'SF1'], ['QF2', 'SF1'], ['QF3', 'SF2'], ['QF4', 'SF2'],
+      ['SF1', 'FINAL'], ['SF2', 'FINAL'],
+    ];
+    feeds.forEach(([a, b]) => lines.push(`  ${a} --> ${b}`));
+    lines.push('  SF1 -.-> T3');
+    lines.push('  SF2 -.-> T3');
+
+    const podiumLine = (team) =>
+      `${teamLabel(team)} — ${safe(team ? getPoolOwnerName(team.poolId) : '—')}`;
+    lines.push('  subgraph PODIUM["🏅 Podium"]');
+    lines.push(`    P1["🥇 1st: ${podiumLine(r.champion)}"]`);
+    lines.push(`    P2["🥈 2nd: ${podiumLine(r.runnerUp)}"]`);
+    lines.push(`    P3["🥉 3rd: ${podiumLine(r.third)}"]`);
+    lines.push('  end');
+    lines.push('  FINAL -.-> P1');
+
+    lines.push('  classDef champ fill:#f59e0b,stroke:#b45309,color:#111827;');
+    lines.push('  class FINAL,P1 champ;');
+
+    return lines.join('\n');
+  };
+
   const buildResultSummary = () => {
-    if (!tournamentResults) {
-      return 'No tournament results are available yet.';
-    }
+    const placeLine = (team, amount) =>
+      team
+        ? `${team.name} ${team.flag} - ${getPoolOwnerName(team.poolId)} - $${amount}`
+        : `TBD - $${amount}`;
 
     const lines = [
       'World Cup 2026 Slip-Pick Results',
+      tournamentResults.simulatedAny ? '(undecided matches shown as a simulated preview)' : '',
       '',
-      `1st Place: ${tournamentResults.champion.name} ${tournamentResults.champion.flag} - ${getPoolOwnerName(tournamentResults.champion.poolId)} - $${prizes.first}`,
-      `2nd Place: ${tournamentResults.runnerUp.name} ${tournamentResults.runnerUp.flag} - ${getPoolOwnerName(tournamentResults.runnerUp.poolId)} - $${prizes.second}`,
-      `3rd Place: ${tournamentResults.third.name} ${tournamentResults.third.flag} - ${getPoolOwnerName(tournamentResults.third.poolId)} - $${prizes.third}`,
+      '```mermaid',
+      buildMermaidDiagram(),
+      '```',
+      '',
+      `1st Place: ${placeLine(tournamentResults.champion, prizes.first)}`,
+      `2nd Place: ${placeLine(tournamentResults.runnerUp, prizes.second)}`,
+      `3rd Place: ${placeLine(tournamentResults.third, prizes.third)}`,
       '',
       'Assigned Pools:',
       ...players.map((player) => {
@@ -364,7 +436,7 @@ export default function SlipPickApp() {
               </button>
             ) : (
               <button
-                onClick={resetDraft}
+                onClick={handleRedraw}
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 font-medium px-4 py-2 rounded-xl transition-all"
               >
                 <RefreshCw className="w-4 h-4" /> Redraw Pools
@@ -571,50 +643,83 @@ export default function SlipPickApp() {
                 </p>
               </div>
             ) : (
+              <>
+              {/* Edit Player Names — available even after the game has started */}
+              <section className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Edit Player Names</p>
+                  <span className="text-[10px] text-slate-500">Names can be changed at any time</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {players.map((player) => (
+                    <input
+                      key={player.id}
+                      type="text"
+                      value={player.name}
+                      disabled={isShuffling}
+                      onChange={(e) => handleNameChange(player.id, e.target.value)}
+                      placeholder={`Player ${player.id}`}
+                      className="bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-40 transition-all"
+                    />
+                  ))}
+                </div>
+              </section>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {/* Prize Winners */}
                 <div className="lg:col-span-1 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-700 shadow-xl h-fit">
                   <h3 className="text-lg font-bold text-white mb-4">🏅 Prize Winners</h3>
-                  {!tournamentResults ? (
-                    <div className="text-center py-4 space-y-3">
-                      <p className="text-slate-400 text-sm">Run a simulation to preview prize winners, or enter the actual results once the tournament is played.</p>
-                      <button
-                        onClick={handleSimulate}
-                        className="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all"
-                      >
-                        <Trophy className="w-4 h-4" /> Simulate Matches
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 text-sm">
-                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-amber-400">1st — ${prizes.first}</div>
-                        <div className="text-slate-300">{tournamentResults.champion.name} • {tournamentResults.champion.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.champion.poolId)}</div>
+                  {(() => {
+                    const finalStatus = tournamentResults.matchFinal?.status ?? 'tbd';
+                    const thirdStatus = tournamentResults.matchThird?.status ?? 'tbd';
+                    const rows = [
+                      { key: '1st', amount: prizes.first, team: tournamentResults.champion, status: finalStatus, color: 'text-amber-400' },
+                      { key: '2nd', amount: prizes.second, team: tournamentResults.runnerUp, status: finalStatus, color: 'text-slate-300' },
+                      { key: '3rd', amount: prizes.third, team: tournamentResults.third, status: thirdStatus, color: 'text-slate-300' },
+                    ];
+                    return (
+                      <div className="space-y-3 text-sm">
+                        {rows.map((row) => (
+                          <div key={row.key} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                            <div className={`font-semibold ${row.color} flex items-center justify-between gap-2`}>
+                              <span>{row.key} — ${row.amount}</span>
+                              {row.team && row.status === 'simulated' && (
+                                <span className="text-[9px] uppercase tracking-wide text-indigo-300 bg-indigo-900/40 border border-indigo-700/40 px-1.5 py-0.5 rounded-full">Simulated</span>
+                              )}
+                              {row.team && row.status === 'actual' && (
+                                <span className="text-[9px] uppercase tracking-wide text-emerald-300 bg-emerald-900/30 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Final</span>
+                              )}
+                            </div>
+                            {row.team ? (
+                              <>
+                                <div className="text-slate-300">{row.team.name} • {row.team.flag}</div>
+                                <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(row.team.poolId)}</div>
+                              </>
+                            ) : (
+                              <div className="text-slate-500 text-xs italic mt-0.5">TBD — not yet decided</div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-
-                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-slate-300">2nd — ${prizes.second}</div>
-                        <div className="text-slate-300">{tournamentResults.runnerUp.name} • {tournamentResults.runnerUp.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.runnerUp.poolId)}</div>
-                      </div>
-
-                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <div className="font-semibold text-slate-300">3rd — ${prizes.third}</div>
-                        <div className="text-slate-300">{tournamentResults.third.name} • {tournamentResults.third.flag}</div>
-                        <div className="text-slate-400 text-xs">Owned by: {getPoolOwnerName(tournamentResults.third.poolId)}</div>
-                      </div>
-                    </div>
-                  )}
-                  {tournamentResults && (
+                    );
+                  })()}
+                  <div className="mt-2 flex gap-2">
                     <button
                       onClick={handleSimulate}
-                      className="w-full mt-2 flex items-center justify-center gap-2 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
+                      className="flex-1 flex items-center justify-center gap-2 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" /> Re-simulate
+                      <RefreshCw className="w-3.5 h-3.5" /> {tournamentResults.simulatedAny ? 'Re-simulate' : 'Simulate gaps'}
                     </button>
-                  )}
+                    {tournamentResults.simulatedAny && (
+                      <button
+                        onClick={showActualBracket}
+                        className="flex-1 flex items-center justify-center gap-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/50 hover:bg-slate-700 border border-slate-600 py-2 rounded-xl transition-all"
+                      >
+                        <Trophy className="w-3.5 h-3.5" /> Show actual
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={handleExportResults}
                     className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
@@ -705,6 +810,7 @@ export default function SlipPickApp() {
                 </div>
 
               </div>
+              </>
             )}
           </div>
         )}
@@ -769,34 +875,53 @@ export default function SlipPickApp() {
 
         {/* TAB 4: BRACKET / MATCH RESULTS */}
         {activeTab === 'bracket' && (() => {
-          const hasBracketData = tournamentResults?.matchesR32
-            && tournamentResults?.matchesR16
-            && tournamentResults?.matchesQF
-            && tournamentResults?.matchesSF
-            && tournamentResults?.matchThird
-            && tournamentResults?.matchFinal;
+          const isSimView = tournamentResults.simulatedAny;
+          // Third-place qualification is only known once thirds are seeded
+          // (actual seeding present, or a simulation has run).
+          const thirdsSeeded =
+            isSimView || tournamentResults.groupStage.some((e) => e.thirdQualified);
 
-          const TeamRow = ({ team, isWinner }) => (
-            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${isWinner ? 'bg-amber-500/10 border border-amber-500/40 text-slate-100' : 'bg-slate-900/50 border border-slate-800 text-slate-300'}`}>
-              <span className="flex items-center gap-1.5 min-w-0 font-medium truncate">
-                <span className="text-base shrink-0">{team.flag}</span>
-                <span className="truncate">{team.name}</span>
-              </span>
-              <span className="flex items-center gap-1 shrink-0 ml-1">
-                <span className="text-[10px] text-slate-400 max-w-[72px] truncate">{getPoolOwnerName(team.poolId)}</span>
-                {isWinner && <span className="text-amber-400 font-bold">✓</span>}
-              </span>
-            </div>
-          );
+          const statusBadge = (status) => {
+            if (status === 'actual')
+              return <span className="text-[9px] uppercase tracking-wide text-emerald-300 bg-emerald-900/30 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Played</span>;
+            if (status === 'simulated')
+              return <span className="text-[9px] uppercase tracking-wide text-indigo-300 bg-indigo-900/40 border border-indigo-700/40 px-1.5 py-0.5 rounded-full">Sim</span>;
+            return <span className="text-[9px] uppercase tracking-wide text-slate-500 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded-full">TBD</span>;
+          };
+
+          const TeamRow = ({ team, isWinner }) => {
+            if (!team) {
+              return (
+                <div className="flex items-center px-2.5 py-1.5 rounded-lg text-xs bg-slate-900/40 border border-dashed border-slate-800 text-slate-600">
+                  <span className="italic">TBD</span>
+                </div>
+              );
+            }
+            return (
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${isWinner ? 'bg-amber-500/10 border border-amber-500/40 text-slate-100' : 'bg-slate-900/50 border border-slate-800 text-slate-300'}`}>
+                <span className="flex items-center gap-1.5 min-w-0 font-medium truncate">
+                  <span className="text-base shrink-0">{team.flag}</span>
+                  <span className="truncate">{team.name}</span>
+                </span>
+                <span className="flex items-center gap-1 shrink-0 ml-1">
+                  <span className="text-[10px] text-slate-400 max-w-[72px] truncate">{getPoolOwnerName(team.poolId)}</span>
+                  {isWinner && <span className="text-amber-400 font-bold">✓</span>}
+                </span>
+              </div>
+            );
+          };
+
+          const isWin = (match, team) => !!(team && match.winner && match.winner.id === team.id);
 
           const MatchCard = ({ match, accent }) => (
             <div className={`bg-slate-800/60 border rounded-xl p-3 flex flex-col gap-1 ${accent ? 'border-amber-500/30' : 'border-slate-700/60'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-mono font-semibold text-slate-400">{match.label}</span>
+                {statusBadge(match.status)}
               </div>
-              <TeamRow team={match.teamA} isWinner={match.winner === match.teamA} />
+              <TeamRow team={match.teamA} isWinner={isWin(match, match.teamA)} />
               <div className="text-center text-[10px] text-slate-600 font-semibold tracking-widest">VS</div>
-              <TeamRow team={match.teamB} isWinner={match.winner === match.teamB} />
+              <TeamRow team={match.teamB} isWinner={isWin(match, match.teamB)} />
             </div>
           );
 
@@ -809,103 +934,83 @@ export default function SlipPickApp() {
             </section>
           );
 
-          if (!tournamentResults) {
-            return (
-              <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
-                <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                {hasAssigned ? (
-                  <>
-                    <h3 className="text-lg font-bold text-slate-300">Pools Drawn — Bracket Ready</h3>
-                    <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1 mb-5">
-                      Pools have been assigned. Run a simulation to preview how the bracket might play out, or wait for the real tournament results.
-                    </p>
-                    <button
-                      onClick={handleSimulate}
-                      className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-all shadow-lg"
-                    >
-                      <Trophy className="w-4 h-4" /> Simulate Matches
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-lg font-bold text-slate-400">No Bracket Yet</h3>
-                    <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1">
-                      Draw pools first, then come back here to simulate or enter the real match results.
-                    </p>
-                  </>
-                )}
-              </div>
-            );
-          }
-
-          if (!hasBracketData) {
-            return (
-              <div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
-                <RefreshCw className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-slate-400">Outdated Simulation</h3>
-                <p className="text-slate-500 text-sm max-w-sm mx-auto mt-1 mb-5">
-                  Click "Redraw Pools" to re-run the simulation and unlock the full match breakdown.
-                </p>
-                <button
-                  onClick={handleSimulate}
-                  className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-all shadow-lg"
-                >
-                  <Trophy className="w-4 h-4" /> Simulate Matches
-                </button>
-              </div>
-            );
-          }
+          const QualRow = ({ rank, rankColor, team }) => (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className={`text-[9px] font-bold w-5 shrink-0 ${rankColor}`}>{rank}</span>
+              {team ? (
+                <>
+                  <span className="text-base shrink-0">{team.flag}</span>
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-200 truncate">{team.name}</div>
+                    <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(team.poolId)}</div>
+                  </div>
+                </>
+              ) : (
+                <span className="text-[10px] text-slate-600 italic">TBD</span>
+              )}
+            </div>
+          );
 
           return (
             <div className="space-y-8">
-              {/* Simulate toolbar */}
+              {/* Toolbar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/40 border border-slate-700/60 rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Simulation Preview</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Results are randomly simulated. Use for fun previews only.</p>
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
+                    {isSimView ? 'Actual results + simulated preview' : 'Actual results'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {isSimView
+                      ? 'Undecided matches are randomly simulated (“Sim”). Played matches are never changed.'
+                      : 'Showing the real played matches. Undecided matches are marked TBD.'}
+                  </p>
                 </div>
-                <button
-                  onClick={handleSimulate}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 hover:text-indigo-100 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 px-3 py-1.5 rounded-lg transition-all"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Re-simulate
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSimulate}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 hover:text-indigo-100 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 px-3 py-1.5 rounded-lg transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> {isSimView ? 'Re-simulate' : 'Simulate gaps'}
+                  </button>
+                  {isSimView && (
+                    <button
+                      onClick={showActualBracket}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                      <Trophy className="w-3.5 h-3.5" /> Show actual
+                    </button>
+                  )}
+                </div>
               </div>
               {/* Group Stage */}
               <section>
                 <h4 className="text-xs uppercase tracking-[0.15em] font-bold text-slate-400 mb-3">Group Stage — Qualifiers (1st, 2nd + best 8 of 12 third-place ★)</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {tournamentResults.groupStage.map(({ group, first, second, third: thirdTeam, thirdQualified }) => (
+                  {tournamentResults.groupStage.map(({ group, first, second, third: thirdTeam, thirdQualified, status }) => (
                     <div key={group} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3">
-                      <div className="text-[11px] font-bold text-amber-400 mb-2 uppercase tracking-wide">Group {group}</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wide">Group {group}</div>
+                        {statusBadge(status)}
+                      </div>
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="text-[9px] text-emerald-400 font-bold w-5 shrink-0">1st</span>
-                          <span className="text-base shrink-0">{first.flag}</span>
-                          <div className="min-w-0">
-                            <div className="font-medium text-slate-200 truncate">{first.name}</div>
-                            <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(first.poolId)}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="text-[9px] text-slate-500 font-bold w-5 shrink-0">2nd</span>
-                          <span className="text-base shrink-0">{second.flag}</span>
-                          <div className="min-w-0">
-                            <div className="font-medium text-slate-300 truncate">{second.name}</div>
-                            <div className="text-[9px] text-slate-500 truncate">{getPoolOwnerName(second.poolId)}</div>
-                          </div>
-                        </div>
-                        {thirdTeam && (
+                        <QualRow rank="1st" rankColor="text-emerald-400" team={first} />
+                        <QualRow rank="2nd" rankColor="text-slate-500" team={second} />
+                        {thirdTeam ? (
                           <div className="flex items-center gap-1.5 text-xs">
                             <span className={`text-[9px] font-bold w-5 shrink-0 ${thirdQualified ? 'text-sky-400' : 'text-slate-600'}`}>3rd</span>
                             <span className="text-base shrink-0">{thirdTeam.flag}</span>
                             <div className="min-w-0">
-                              <div className={`font-medium truncate ${thirdQualified ? 'text-slate-300' : 'text-slate-500 line-through'}`}>{thirdTeam.name}</div>
+                              <div className={`font-medium truncate ${thirdsSeeded && !thirdQualified ? 'text-slate-500 line-through' : 'text-slate-300'}`}>{thirdTeam.name}</div>
                               <div className="text-[9px] text-slate-500 truncate">
-                                {thirdQualified ? getPoolOwnerName(thirdTeam.poolId) : 'Eliminated'}
+                                {thirdsSeeded && !thirdQualified ? 'Eliminated' : getPoolOwnerName(thirdTeam.poolId)}
                               </div>
                             </div>
                             {thirdQualified && <span className="text-sky-400 text-[9px] font-bold shrink-0">★</span>}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-[9px] font-bold w-5 shrink-0 text-slate-600">3rd</span>
+                            <span className="text-[10px] text-slate-600 italic">TBD</span>
                           </div>
                         )}
                       </div>
