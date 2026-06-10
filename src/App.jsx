@@ -369,14 +369,47 @@ export default function SlipPickApp() {
     return lines.join('\n');
   };
 
+  const handlePreviewMermaid = () => {
+    const diagram = buildMermaidDiagram();
+    const isSimView = tournamentResults.simulatedAny;
+    const title = `FMG World Cup 2026 Sweepstakes — Result Sheet${isSimView ? ' (Simulated Preview)' : ''}`;
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${title}</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis' } });
+  </script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: sans-serif; margin: 0; padding: 24px; }
+    h1 { font-size: 1.1rem; color: #fbbf24; margin-bottom: 20px; }
+    .mermaid { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>⚽ ${title}</h1>
+  <pre class="mermaid">
+${diagram}
+  </pre>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
   const buildResultSummary = () => {
     const placeLine = (team, amount) =>
       team
         ? `${team.name} ${team.flag} - ${getPoolOwnerName(team.poolId)} - $${amount}`
         : `TBD - $${amount}`;
 
+    const envLabel = isPreviewEnv ? 'Secondary (Preview)' : 'Main (Production)';
     const lines = [
-      'World Cup 2026 Slip-Pick Results',
+      `World Cup 2026 Slip-Pick Results — ${envLabel}`,
       tournamentResults.simulatedAny ? '(undecided matches shown as a simulated preview)' : '',
       '',
       '```mermaid',
@@ -408,7 +441,7 @@ export default function SlipPickApp() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: 'World Cup 2026 Sweepstakes Results',
+          title: `World Cup 2026 Sweepstakes Results — ${isPreviewEnv ? 'Secondary (Preview)' : 'Main (Production)'}`,
           text: summary,
         });
         setExportFeedback('Results shared.');
@@ -425,7 +458,7 @@ export default function SlipPickApp() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'world-cup-slip-pick-results.txt';
+      link.download = `world-cup-slip-pick-results${isPreviewEnv ? '-preview' : ''}.txt`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -784,14 +817,11 @@ export default function SlipPickApp() {
                     )}
                   </div>
                   <button
-                    onClick={handleExportResults}
+                    onClick={handlePreviewMermaid}
                     className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
                   >
-                    <Share2 className="w-3.5 h-3.5" /> Export Results Sheet
+                    <Trophy className="w-3.5 h-3.5" /> Preview Result Sheet
                   </button>
-                  {exportFeedback && (
-                    <p className="mt-2 text-xs text-slate-400">{exportFeedback}</p>
-                  )}
                 </div>
 
                 {/* Individual Cards Grid */}

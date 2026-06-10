@@ -15,7 +15,7 @@ A React single-page app for running a fair World Cup lottery with friends. Eight
 - **Prize Tracking** — $25 / $10 / $5 for 1st / 2nd / 3rd; winners show once the Final / 3rd-place match is actually decided (otherwise TBD). Shows which player owns the winning team
 - **FIFA Ranking Points** — fetches live FIFA ranking points from the official FIFA API on first load; each team displays its current points, each pool card shows the average across its 6 teams, and the last sync time is shown in **Perth Western Australian time (AWST)**
 - **Session Persistence** — pool assignments and FIFA ranking points are saved to `localStorage` and survive page refreshes. Actual match results come from the bundled file (not localStorage)
-- **Export Results** — share via Web Share API, copy to clipboard, or download as `.txt`
+- **Preview Result Sheet** — opens a new browser tab with the full knockout bracket rendered as a Mermaid flowchart (R32 → R16 → QF → SF → Final + Podium), including winners and pool owner labels. Available from the Player Dashboards & Standings tab
 
 > **Note:** FIFA ranking fetches use a Vite proxy (`/api/fifa-ranking/*` → `https://inside.fifa.com/...`). This works with `npm run dev` and `npm run preview`. It will **not** work if you serve the `dist/` folder directly from a static host without a proxy configured.
 
@@ -42,6 +42,7 @@ src/
   teams.js              # 48 World Cup teams with group, half, tier, and flag
   pools.js              # 8 pre-configured balanced pools of 6 teams each
   fifaRankings.js       # FIFA rankings API fetch + name mapping
+  matchSchedule.js      # Hardcoded UTC kick-off times for all 32 knockout matches
   assets/
     kfc-logo.svg        # KFC logo used in the footer disclaimer
 scripts/
