@@ -22,7 +22,8 @@ There is no test suite.
 | `src/BracketSimulator.jsx` | Pure simulation logic; exports `buildBracket(poolsData, actual, opts)` |
 | `src/teams.js` | 48 team definitions: `{ id, name, group, half, tier, flag }` |
 | `src/pools.js` | 8 pre-configured pools as arrays of team ID strings |
-| `src/players.json` | Fixed player roster `[{ id, name, poolId }]` — set `[]` for editable mode |
+| `src/players.json` | Fixed player roster `[{ id, name, poolId }]` — production env; set `[]` for editable mode |
+| `src/players-preview.json` | Fixed player roster for preview env — set `[]` for editable mode |
 | `src/actualResults.json` | Real played match results (auto-fetched or hand-edited) |
 | `src/fifaRankings.js` | FIFA rankings API fetch + kebab-case ↔ FIFA-name mapping |
 | `scripts/fetch-results.mjs` | Node.js script: fetches live WC results from FIFA API → writes `actualResults.json` |
@@ -41,7 +42,7 @@ There is no test suite.
 | `wc26_prizes` | `{ first, second, third }` — prize amounts in whole dollars (defaults: 25, 10, 5) |
 | `wc26_players` | Array of 8 player objects (names + poolId assignments) — ignored when `players.json` is non-empty |
 | `wc26_hasAssigned` | Boolean — whether the draw has happened |
-| `wc26_fifaRankings` | `{ fetchedAt, rankings: { [teamId]: points } }` |
+| `wc26_fifaRankings` | `{ fetchedAt, rankings: { [teamId]: points } }` — `fetchedAt` displayed in Perth AWST |
 
 Player state is **not** written to localStorage while `isShuffling` is true, to avoid saving transient animation state.
 
@@ -50,18 +51,21 @@ Player state is **not** written to localStorage while `isShuffling` is true, to 
 ```js
 players          // [{ id, name, poolId, points }] × 8
 isShuffling      // bool — true during 2s animation; blocks localStorage writes
-hasAssigned      // bool — true once draw is complete (or always true when players.json is populated)
+hasAssigned      // bool — true once draw is complete (or always true when players file is populated)
 tournamentResults // { champion, runnerUp, third, groupStage, matchesR32, ... }
 fifaRankings     // { [teamId]: number } | null — FIFA points per team
+rankingsFetchedAt // ISO timestamp of last FIFA rankings sync | null
 rankingsStatus   // 'idle' | 'loading' | 'error'
-activeTab        // 'pools' | 'dashboard' | 'scoring' | 'bracket'
+activeTab        // 'pools' | 'dashboard' | 'scoring' | 'bracket' — default: 'dashboard'
 exportFeedback   // UI string for share/copy/download feedback
 ```
 
 ### Module-level constants
 
 ```js
-PLAYERS_LOCKED   // true when src/players.json is non-empty — disables name editing UI
+isPreviewEnv     // true when hostname contains 'preview' (Azure Static Web Apps preview URL)
+activePlayersJson // players-preview.json (preview) or players.json (production/dev)
+PLAYERS_LOCKED   // true when activePlayersJson is non-empty — disables name editing UI
 RESULTS_LOCKED   // true when actualResults.json has any non-null value — hides Simulate buttons
 ```
 
@@ -76,7 +80,7 @@ RESULTS_LOCKED   // true when actualResults.json has any non-null value — hide
 
 ## Extending
 
-**Change player roster** — edit `src/players.json`. Set `poolId` to the pool number (1–8) or `null` for a pre-draw state. Set the file to `[]` to revert to fully editable mode.
+**Change player roster** — edit `src/players.json` (production/dev) or `src/players-preview.json` (preview environment). The active file is selected at runtime: `window.location.hostname.includes('preview')` → preview file, otherwise production file. Set `poolId` to the pool number (1–8) or `null` for a pre-draw state. Set the file to `[]` to revert to fully editable mode.
 
 **Change prize amounts** — prize amounts are configurable via the **Prize Rules** tab in the UI (editable before the draw only). Defaults are `{ first: 25, second: 10, third: 5 }` stored in localStorage `wc26_prizes`.
 

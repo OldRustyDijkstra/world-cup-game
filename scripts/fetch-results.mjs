@@ -139,7 +139,14 @@ function emptyResults() {
      'QF1','QF2','QF3','QF4','SF1','SF2','3rd','Final']
     .map(l => [l, null])
   );
-  return { groups, thirdSlots, winners };
+  const matchDates = Object.fromEntries(
+    ['M73','M74','M75','M76','M77','M78','M79','M80',
+     'M81','M82','M83','M84','M85','M86','M87','M88',
+     'M89','M90','M91','M92','M93','M94','M95','M96',
+     'QF1','QF2','QF3','QF4','SF1','SF2','3rd','Final']
+    .map(l => [l, null])
+  );
+  return { groups, thirdSlots, winners, matchDates };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,10 +259,16 @@ function parseFIFAResults(data) {
       if (played) groupMatchCounts[groupLetter].played += 1;
     }
 
-    // Knockout stage winners
+    // Knockout stage winners + match dates
     const label = matchNumToLabel(num);
-    if (label && played && winnerId && label in out.winners) {
-      out.winners[label] = winnerId;
+    if (label) {
+      if (played && winnerId && label in out.winners) {
+        out.winners[label] = winnerId;
+      }
+      // Capture UTC kick-off time (TimeDefined=true means the time is set)
+      if (m.Date && label in out.matchDates) {
+        out.matchDates[label] = m.Date;
+      }
     }
   }
 
@@ -461,7 +474,12 @@ async function main() {
   let existing = emptyResults();
   try {
     const raw = JSON.parse(readFileSync(OUT, 'utf-8'));
-    existing = { groups: raw.groups ?? {}, thirdSlots: raw.thirdSlots ?? {}, winners: raw.winners ?? {} };
+    existing = {
+      groups: raw.groups ?? {},
+      thirdSlots: raw.thirdSlots ?? {},
+      winners: raw.winners ?? {},
+      matchDates: raw.matchDates ?? {},
+    };
   } catch { /* file missing or malformed, start fresh */ }
 
   const merged = {
@@ -469,7 +487,8 @@ async function main() {
     _format: {
       groups: "Per-group final standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs. Use null until the group is fully decided.",
       thirdSlots: "Which qualified 3rd-place team fills each of the 8 'bye' Round-of-32 slots (team B of those matches). The 8 values are the thirds that advanced. Use null until seeded.",
-      winners: "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played."
+      winners: "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played.",
+      matchDates: "UTC ISO kick-off time for each knockout match (auto-populated from FIFA API). Used for display purposes only."
     },
     groups: Object.fromEntries(
       Object.keys(existing.groups).map(k => [k, results.groups[k] ?? existing.groups[k] ?? null])
@@ -479,6 +498,9 @@ async function main() {
     ),
     winners: Object.fromEntries(
       Object.keys(existing.winners).map(k => [k, results.winners[k] ?? existing.winners[k] ?? null])
+    ),
+    matchDates: Object.fromEntries(
+      Object.keys(emptyResults().matchDates).map(k => [k, results.matchDates[k] ?? existing.matchDates[k] ?? null])
     ),
   };
 

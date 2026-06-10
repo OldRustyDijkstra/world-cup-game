@@ -6,14 +6,14 @@ A React single-page app for running a fair World Cup lottery with friends. Eight
 
 ## Features
 
-- **Fixed Player Roster** — player names and pool assignments live in `src/players.json`. When that file is non-empty, names are locked (no in-app editing). Set it to `[]` to restore fully editable mode
+- **Fixed Player Roster** — player names and pool assignments live in `src/players.json` (production) or `src/players-preview.json` (preview environment). When the active file is non-empty, names are locked (no in-app editing). Set the active file to `[]` to restore fully editable mode. See [Managing Players](#managing-players) for environment details.
 - **Sweepstakes Draw** — animated Fisher-Yates shuffle randomly assigns one of 8 balanced pools to each player (active only when `players.json` is empty)
 - **Balanced Pools** — each pool has 6 teams from 6 unique groups, split evenly across Left (A–F) and Right (G–L) bracket halves, with FIFA points balanced within ±150 pts of the overall average
 - **Real 2026 Bracket Structure** — the knockout bracket follows the official fixed structure (R32 → R16 → QF → SF → Final); all 32 teams play in R32 (24 group qualifiers + best 8 of 12 third-place finishers); only match _results_ are variable, never the match pairings
 - **Actual Results, Auto-Fetched** — run `node scripts/fetch-results.mjs` to pull live results from the unofficial FIFA API and write `src/actualResults.json` automatically. The file is partial-friendly: leave a value `null` until that match/group is decided and it shows as **TBD**
 - **Simulation Lock** — when `actualResults.json` contains any real data, the "Simulate gaps" button is hidden. Simulation is only available before the tournament starts (pre-result state)
 - **Prize Tracking** — $25 / $10 / $5 for 1st / 2nd / 3rd; winners show once the Final / 3rd-place match is actually decided (otherwise TBD). Shows which player owns the winning team
-- **FIFA Ranking Points** — fetches live FIFA ranking points from the official FIFA API on first load; each team displays its current points, and each pool card shows the average across its 6 teams for fairness comparison
+- **FIFA Ranking Points** — fetches live FIFA ranking points from the official FIFA API on first load; each team displays its current points, each pool card shows the average across its 6 teams, and the last sync time is shown in **Perth Western Australian time (AWST)**
 - **Session Persistence** — pool assignments and FIFA ranking points are saved to `localStorage` and survive page refreshes. Actual match results come from the bundled file (not localStorage)
 - **Export Results** — share via Web Share API, copy to clipboard, or download as `.txt`
 
@@ -37,17 +37,30 @@ src/
   App.jsx               # Main app component — all UI and game logic
   BracketSimulator.jsx  # buildBracket() — actual-aware bracket builder + simulation
   actualResults.json    # Real played match results (auto-fetched or hand-edited)
-  players.json          # Fixed player roster { id, name, poolId }[] — set [] for editable mode
+  players.json          # Fixed player roster { id, name, poolId }[] — production environment
+  players-preview.json  # Fixed player roster for preview environment — set [] for editable mode
   teams.js              # 48 World Cup teams with group, half, tier, and flag
   pools.js              # 8 pre-configured balanced pools of 6 teams each
   fifaRankings.js       # FIFA rankings API fetch + name mapping
+  assets/
+    kfc-logo.svg        # KFC logo used in the footer disclaimer
 scripts/
   fetch-results.mjs     # Node script — fetches live WC results → actualResults.json
 ```
 
 ## Managing Players
 
-Player names and pool assignments are stored in `src/players.json`:
+Player names and pool assignments are stored in environment-specific JSON files:
+
+| Environment | File | URL pattern |
+|-------------|------|-------------|
+| **Production** | `src/players.json` | `gray-field-0dbb8c600.7.azurestaticapps.net` |
+| **Preview** | `src/players-preview.json` | `gray-field-0dbb8c600-preview.eastasia…` |
+| **Local dev** | `src/players.json` | `localhost` |
+
+The active file is selected at runtime by checking `window.location.hostname.includes('preview')`.
+
+Both files share the same shape:
 
 ```json
 [
@@ -58,7 +71,7 @@ Player names and pool assignments are stored in `src/players.json`:
 ]
 ```
 
-- When the file has entries, names and assignments are **locked** — no in-app editing.
+- When the active file has entries, names and assignments are **locked** — no in-app editing.
 - Set the file to `[]` to revert to the standard editable mode with the Draw button active.
 - `poolId` values match the `id` in `src/pools.js` (1–8).
 

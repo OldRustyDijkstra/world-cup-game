@@ -7,6 +7,9 @@ import { fetchFifaRankings } from './fifaRankings';
 import rankingsFileCache from './fifaRankingsCache.json';
 import actualResults from './actualResults.json';
 import playersJson from './players.json';
+import playersPreviewJson from './players-preview.json';
+import kfcLogo from './assets/kfc-logo.svg';
+import { formatMatchTime } from './matchSchedule';
 
 // ==========================================
 // DATA STRUCTURES
@@ -20,7 +23,9 @@ const POOLS_DATA = POOLS.map((pool) => ({
 const POOL_IDS = POOLS_DATA.map((pool) => pool.id);
 
 // If players.json is non-empty, player names and assignments are locked.
-const PLAYERS_LOCKED = Array.isArray(playersJson) && playersJson.length > 0;
+const isPreviewEnv = typeof window !== 'undefined' && window.location.hostname.includes('preview');
+const activePlayersJson = isPreviewEnv ? playersPreviewJson : playersJson;
+const PLAYERS_LOCKED = Array.isArray(activePlayersJson) && activePlayersJson.length > 0;
 
 // If actualResults.json contains any real data, simulation of gaps is locked.
 // This prevents showing speculative results alongside real ones during a live tournament.
@@ -30,7 +35,7 @@ const RESULTS_LOCKED =
   Object.values(actualResults.winners ?? {}).some(v => v != null);
 
 const INITIAL_PLAYERS = PLAYERS_LOCKED
-  ? playersJson.map((p) => ({ points: 0, ...p }))
+  ? activePlayersJson.map((p) => ({ points: 0, ...p }))
   : [
       { id: 1, name: "Player 1", poolId: null, points: 0 },
       { id: 2, name: "Player 2", poolId: null, points: 0 },
@@ -448,8 +453,13 @@ export default function SlipPickApp() {
             <span className="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
               FMG World Cup 2026
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
-              ⚽ Sweepstakes Bracket Balancer
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300 flex items-center gap-2">
+              <Trophy className="w-7 h-7 text-amber-400 shrink-0" />
+              Sweepstakes Worldcup
+              {isPreviewEnv
+                ? <span className="text-xs font-semibold bg-purple-600/80 text-purple-100 border border-purple-500/50 px-2 py-0.5 rounded-full normal-case tracking-normal">Secondary</span>
+                : <span className="text-xs font-semibold bg-emerald-600/80 text-emerald-100 border border-emerald-500/50 px-2 py-0.5 rounded-full normal-case tracking-normal">Main</span>
+              }
             </h1>
           </div>
 
@@ -463,6 +473,18 @@ export default function SlipPickApp() {
                 <Shuffle className={`w-5 h-5 ${isShuffling ? 'animate-spin' : ''}`} />
                 {isShuffling ? 'Drawing Pools...' : 'Draw Pools'}
               </button>
+            ) : PLAYERS_LOCKED ? (
+              <div className="relative group">
+                <button
+                  disabled
+                  className="flex items-center gap-2 bg-slate-800 text-slate-500 border border-slate-700 font-medium px-4 py-2 rounded-xl cursor-not-allowed opacity-50"
+                >
+                  <RefreshCw className="w-4 h-4" /> Redraw Pools
+                </button>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-700 text-slate-200 text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                  Pools have been allocated
+                </div>
+              </div>
             ) : (
               <button
                 onClick={handleRedraw}
@@ -958,17 +980,23 @@ export default function SlipPickApp() {
 
           const isWin = (match, team) => !!(team && match.winner && match.winner.id === team.id);
 
-          const MatchCard = ({ match, accent }) => (
+          const MatchCard = ({ match, accent }) => {
+            const matchTime = formatMatchTime(match.label);
+            return (
             <div className={`bg-slate-800/60 border rounded-xl p-3 flex flex-col gap-1 ${accent ? 'border-amber-500/30' : 'border-slate-700/60'}`}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-0.5">
                 <span className="text-[11px] font-mono font-semibold text-slate-400">{match.label}</span>
                 {statusBadge(match.status)}
               </div>
+              {matchTime && (
+                <div className="text-[10px] text-slate-500 mb-0.5">{matchTime}</div>
+              )}
               <TeamRow team={match.teamA} isWinner={isWin(match, match.teamA)} />
               <div className="text-center text-[10px] text-slate-600 font-semibold tracking-widest">VS</div>
               <TeamRow team={match.teamB} isWinner={isWin(match, match.teamB)} />
             </div>
-          );
+            );
+          };
 
           const RoundSection = ({ title, matches, cols = 'grid-cols-2 sm:grid-cols-4', accent = false }) => (
             <section>
@@ -1093,7 +1121,7 @@ export default function SlipPickApp() {
             <div>
               <h3 className="text-base font-bold text-amber-300">About This App</h3>
               <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-                The <strong className="text-white">FMG World Cup 2026 Sweepstakes Bracket Balancer</strong> splits 48 teams across 8 balanced pools — one pool per player. Each pool is carefully constructed to give every participant a fair shot: 6 teams from 6 unique groups, balanced across bracket halves. Players draw their pool at random, then simulate the full 2026 FIFA World Cup bracket to see whose teams advance the furthest and claim the prize pot.
+                The <strong className="text-white">FMG World Cup 2026 Sweepstakes Worldcup</strong> splits 48 teams across 8 balanced pools — one pool per player. Each pool is carefully constructed to give every participant a fair shot: 6 teams from 6 unique groups, balanced across bracket halves. Players draw their pool at random, then simulate the full 2026 FIFA World Cup bracket to see whose teams advance the furthest and claim the prize pot.
               </p>
             </div>
           </section>
@@ -1106,14 +1134,14 @@ export default function SlipPickApp() {
             <div>
               <h3 className="text-base font-bold text-indigo-300">Mathematical Fairness Blueprint Activated</h3>
               <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-                Each pool contains exactly <strong className="text-white">6 teams</strong> from <strong className="text-white">6 unique groups</strong>, split <strong className="text-white">3-3 between Left &amp; Right bracket halves</strong>. Pools follow the real 2026 World Cup bracket — only match results are simulated at random. Pool mates are kept in different bracket quarters where possible, meaning most can only meet in the Semi-finals or Final.
+                Each pool contains exactly <strong className="text-white">6 teams</strong> from <strong className="text-white">6 unique groups</strong>, split <strong className="text-white">3-3 between Left &amp; Right bracket halves</strong>. Pools follow the real 2026 World Cup bracket. Pool mates are kept in different bracket quarters where possible, meaning most can only meet in the Semi-finals or Final.
               </p>
             </div>
           </section>
 
           {/* Disclaimer */}
           <section className="bg-slate-800/30 border border-slate-700/40 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-start">
-            <span className="text-2xl">🍗</span>
+            <img src={kfcLogo} alt="KFC" className="w-14 h-6 object-contain shrink-0 mt-0.5" />
             <p className="text-slate-500 text-xs leading-relaxed">
               <strong className="text-slate-400">Friendly use only.</strong> A lighthearted sweepstakes crafted with FriedChicken love — built for casual fun among friends. Live match results are kept up to date when the bot is running; for matches yet to be played, hit Simulate to preview what might unfold. Play at your own risk and enjoy every kick! ⚽
             </p>
