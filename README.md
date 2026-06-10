@@ -14,6 +14,7 @@ A React single-page app for running a fair World Cup lottery with friends. Eight
 - **Simulation Lock** — when `actualResults.json` contains any real data, the "Simulate gaps" button is hidden. Simulation is only available before the tournament starts (pre-result state)
 - **Prize Tracking** — $25 / $10 / $5 for 1st / 2nd / 3rd; winners show once the Final / 3rd-place match is actually decided (otherwise TBD). Shows which player owns the winning team
 - **FIFA Ranking Points** — fetches live FIFA ranking points from the official FIFA API on first load; each team displays its current points, each pool card shows the average across its 6 teams, and the last sync time is shown in **Perth Western Australian time (AWST)**
+- **Testing Mode Banner** — when `src/players.json` is empty, a persistent amber banner is shown at the top of the page warning that data is stored in localStorage only (not permanent). The banner guides the developer to update `src/players.json` with real player names to make assignments permanent
 - **Session Persistence** — pool assignments and FIFA ranking points are saved to `localStorage` and survive page refreshes. Actual match results come from the bundled file (not localStorage)
 - **Preview Result Sheet** — opens a new browser tab with the full knockout bracket rendered as a Mermaid flowchart (R32 → R16 → QF → SF → Final + Podium), including winners and pool owner labels. Available from the Player Dashboards & Standings tab
 

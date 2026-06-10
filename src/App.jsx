@@ -530,6 +530,20 @@ ${diagram}
         </div>
       </header>
 
+      {/* Testing Mode Banner — shown when players.json is empty (localStorage only, not permanent) */}
+      {!PLAYERS_LOCKED && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+            <span className="shrink-0 self-start sm:self-auto bg-amber-500 text-slate-900 font-bold text-xs px-2 py-0.5 rounded-full uppercase tracking-wider">
+              ⚠️ Testing Mode
+            </span>
+            <p className="min-w-0 text-sm text-amber-200/90 leading-snug">
+              Preview only — data is stored in localStorage and is not permanent.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-4 mt-8">
 
@@ -1151,7 +1165,7 @@ ${diagram}
             <div>
               <h3 className="text-base font-bold text-amber-300">About This App</h3>
               <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-                The <strong className="text-white">FMG World Cup 2026 Sweepstakes Worldcup</strong> splits 48 teams across 8 balanced pools — one pool per player. Each pool is carefully constructed to give every participant a fair shot: 6 teams from 6 unique groups, balanced across bracket halves. Players draw their pool at random, then simulate the full 2026 FIFA World Cup bracket to see whose teams advance the furthest and claim the prize pot.
+                The <strong className="text-white">FMG World Cup 2026 Sweepstakes</strong> splits 48 teams across 8 balanced pools — one pool per player. Each pool is carefully constructed to give every participant a fair shot: 6 teams from 6 unique groups, balanced across bracket halves. Players are randomly assigned a pool. The app tracks match results and rewards the top three finishers.
               </p>
             </div>
           </section>
