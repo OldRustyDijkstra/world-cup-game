@@ -6,6 +6,7 @@ import { POOLS } from './pools';
 import { fetchFifaRankings } from './fifaRankings';
 import rankingsFileCache from './fifaRankingsCache.json';
 import actualResults from './actualResults.json';
+import playersJson from './players.json';
 
 // ==========================================
 // DATA STRUCTURES
@@ -18,19 +19,32 @@ const POOLS_DATA = POOLS.map((pool) => ({
 }));
 const POOL_IDS = POOLS_DATA.map((pool) => pool.id);
 
-const INITIAL_PLAYERS = [
-  { id: 1, name: "Player 1", poolId: null, points: 0 },
-  { id: 2, name: "Player 2", poolId: null, points: 0 },
-  { id: 3, name: "Player 3", poolId: null, points: 0 },
-  { id: 4, name: "Player 4", poolId: null, points: 0 },
-  { id: 5, name: "Player 5", poolId: null, points: 0 },
-  { id: 6, name: "Player 6", poolId: null, points: 0 },
-  { id: 7, name: "Player 7", poolId: null, points: 0 },
-  { id: 8, name: "Player 8", poolId: null, points: 0 },
-];
+// If players.json is non-empty, player names and assignments are locked.
+const PLAYERS_LOCKED = Array.isArray(playersJson) && playersJson.length > 0;
+
+// If actualResults.json contains any real data, simulation of gaps is locked.
+// This prevents showing speculative results alongside real ones during a live tournament.
+const RESULTS_LOCKED =
+  Object.values(actualResults.groups  ?? {}).some(v => v != null) ||
+  Object.values(actualResults.thirdSlots ?? {}).some(v => v != null) ||
+  Object.values(actualResults.winners ?? {}).some(v => v != null);
+
+const INITIAL_PLAYERS = PLAYERS_LOCKED
+  ? playersJson.map((p) => ({ points: 0, ...p }))
+  : [
+      { id: 1, name: "Player 1", poolId: null, points: 0 },
+      { id: 2, name: "Player 2", poolId: null, points: 0 },
+      { id: 3, name: "Player 3", poolId: null, points: 0 },
+      { id: 4, name: "Player 4", poolId: null, points: 0 },
+      { id: 5, name: "Player 5", poolId: null, points: 0 },
+      { id: 6, name: "Player 6", poolId: null, points: 0 },
+      { id: 7, name: "Player 7", poolId: null, points: 0 },
+      { id: 8, name: "Player 8", poolId: null, points: 0 },
+    ];
 
 export default function SlipPickApp() {
   const [players, setPlayers] = useState(() => {
+    if (PLAYERS_LOCKED) return INITIAL_PLAYERS;
     try {
       const stored = localStorage.getItem('wc26_players');
       if (stored) {
@@ -42,10 +56,11 @@ export default function SlipPickApp() {
   });
   const [isShuffling, setIsShuffling] = useState(false);
   const [hasAssigned, setHasAssigned] = useState(() => {
+    if (PLAYERS_LOCKED) return INITIAL_PLAYERS.every((p) => p.poolId != null);
     try { return JSON.parse(localStorage.getItem('wc26_hasAssigned')) ?? false; }
     catch { return false; }
   });
-  const [activeTab, setActiveTab] = useState('pools'); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
   const [prizes, setPrizes] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('wc26_prizes'));
@@ -77,18 +92,29 @@ export default function SlipPickApp() {
       return rankingsFileCache.rankings;
     return null;
   });
+  const [rankingsFetchedAt, setRankingsFetchedAt] = useState(() => {
+    try {
+      const stored = localStorage.getItem('wc26_fifaRankings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.fetchedAt) return parsed.fetchedAt;
+      }
+    } catch { /* ignore */ }
+    return rankingsFileCache?.fetchedAt ?? null;
+  });
   const [rankingsStatus, setRankingsStatus] = useState('idle'); // 'idle' | 'loading' | 'error'
   const tabsRef = useRef(null);
 
   // Persist FIFA rankings to localStorage whenever they change
   useEffect(() => {
     if (fifaRankings) {
+      const fetchedAt = rankingsFetchedAt ?? new Date().toISOString();
       localStorage.setItem(
         'wc26_fifaRankings',
-        JSON.stringify({ fetchedAt: new Date().toISOString(), rankings: fifaRankings })
+        JSON.stringify({ fetchedAt, rankings: fifaRankings })
       );
     }
-  }, [fifaRankings]);
+  }, [fifaRankings, rankingsFetchedAt]);
 
   // Sync to localStorage — skip player sync during animation to avoid saving transient state
   useEffect(() => {
@@ -116,14 +142,16 @@ export default function SlipPickApp() {
     setRankingsStatus('loading');
     try {
       const rankings = await fetchFifaRankings();
+      const fetchedAt = new Date().toISOString();
       setFifaRankings(rankings);
+      setRankingsFetchedAt(fetchedAt);
       setRankingsStatus('idle');
       // Persist to src/fifaRankingsCache.json via the Vite dev/preview server plugin.
       // Silently ignored when running from a static host (no server-side endpoint).
       fetch('/api/save-rankings-cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fetchedAt: new Date().toISOString(), rankings }),
+        body: JSON.stringify({ fetchedAt, rankings }),
       }).catch(() => {});
     } catch {
       setRankingsStatus('error');
@@ -200,6 +228,7 @@ export default function SlipPickApp() {
   };
 
   const handleNameChange = (playerId, newName) => {
+    if (PLAYERS_LOCKED) return;
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, name: newName } : p));
   };
 
@@ -209,7 +238,7 @@ export default function SlipPickApp() {
 
   const buildPlayerAssignmentSheet = () => {
     const lines = [
-      '🌍 World Cup 2026 Slip-Pick — Pool Assignments',
+      '🌍 World Cup 2026 Sweepstakes — Pool Assignments',
       '='.repeat(48),
       '',
     ];
@@ -374,7 +403,7 @@ export default function SlipPickApp() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: 'World Cup 2026 Slip-Pick Results',
+          title: 'World Cup 2026 Sweepstakes Results',
           text: summary,
         });
         setExportFeedback('Results shared.');
@@ -417,10 +446,10 @@ export default function SlipPickApp() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <span className="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              World Cup 2026
+              FMG World Cup 2026
             </span>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
-              ⚽ SLIP-PICK Bracket Balancer
+              ⚽ Sweepstakes Bracket Balancer
             </h1>
           </div>
 
@@ -484,20 +513,38 @@ export default function SlipPickApp() {
             </div>
             {/* Player name setup */}
             <div className="mt-6">
-              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">Enter Player Names</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {players.map((player) => (
-                  <input
-                    key={player.id}
-                    type="text"
-                    value={player.name}
-                    disabled={isShuffling}
-                    onChange={(e) => handleNameChange(player.id, e.target.value)}
-                    placeholder={`Player ${player.id}`}
-                    className="bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-40 transition-all"
-                  />
-                ))}
-              </div>
+              {PLAYERS_LOCKED ? (
+                <>
+                  <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">Players</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {players.map((player) => (
+                      <div
+                        key={player.id}
+                        className="bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 py-2 rounded-lg"
+                      >
+                        {player.name}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">Enter Player Names</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {players.map((player) => (
+                      <input
+                        key={player.id}
+                        type="text"
+                        value={player.name}
+                        disabled={isShuffling}
+                        onChange={(e) => handleNameChange(player.id, e.target.value)}
+                        placeholder={`Player ${player.id}`}
+                        className="bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-40 transition-all"
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <button
@@ -520,21 +567,6 @@ export default function SlipPickApp() {
             </div>
           </section>
         )}
-
-        {/* Fairness Guarantee Notice */}
-        <section className="bg-gradient-to-br from-indigo-950 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 mb-8 flex flex-col md:flex-row gap-4 items-start">
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
-            <ShieldCheck className="w-8 h-8" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-indigo-300 flex items-center gap-2">
-              Mathematical Fairness Blueprint Activated
-            </h3>
-            <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-              Each pool contains exactly <strong className="text-white">6 teams</strong> from <strong className="text-white">6 unique groups</strong>, split <strong className="text-white">3-3 between Left &amp; Right bracket halves</strong>. Pools follow the real 2026 World Cup bracket — only match results are simulated at random. Pool mates are kept in different bracket quarters where possible, meaning most can only meet in the Semi-finals or Final.
-            </p>
-          </div>
-        </section>
 
         {/* Navigation Tabs */}
         <div ref={tabsRef} className="flex overflow-x-auto border-b border-slate-800 mb-6 gap-1">
@@ -579,7 +611,12 @@ export default function SlipPickApp() {
                   <span className="text-red-400">Could not load FIFA rankings.</span>
                 )}
                 {rankingsStatus === 'idle' && fifaRankings && (
-                  <span className="text-slate-500">FIFA ranking points shown per team.</span>
+                  <span className="text-slate-500">
+                    FIFA ranking points shown per team.
+                    {rankingsFetchedAt && (
+                      <> Last sync: {new Date(rankingsFetchedAt).toLocaleString('en-AU', { timeZone: 'Australia/Perth', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} AWST</>
+                    )}
+                  </span>
                 )}
               </div>
               <button
@@ -644,7 +681,8 @@ export default function SlipPickApp() {
               </div>
             ) : (
               <>
-              {/* Edit Player Names — available even after the game has started */}
+              {/* Edit Player Names — hidden when players are locked via players.json */}
+              {!PLAYERS_LOCKED && (
               <section className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Edit Player Names</p>
@@ -664,6 +702,7 @@ export default function SlipPickApp() {
                   ))}
                 </div>
               </section>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -705,12 +744,14 @@ export default function SlipPickApp() {
                     );
                   })()}
                   <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={handleSimulate}
-                      className="flex-1 flex items-center justify-center gap-2 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> {tournamentResults.simulatedAny ? 'Re-simulate' : 'Simulate gaps'}
-                    </button>
+                    {!RESULTS_LOCKED && (
+                      <button
+                        onClick={handleSimulate}
+                        className="flex-1 flex items-center justify-center gap-2 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 py-2 rounded-xl transition-all"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> {tournamentResults.simulatedAny ? 'Re-simulate' : 'Simulate gaps'}
+                      </button>
+                    )}
                     {tournamentResults.simulatedAny && (
                       <button
                         onClick={showActualBracket}
@@ -756,12 +797,16 @@ export default function SlipPickApp() {
                         <div>
                           <div className="flex justify-between items-start border-b border-slate-700 pb-3 mb-3">
                             <div>
-                              <input
-                                type="text"
-                                value={player.name}
-                                onChange={(e) => handleNameChange(player.id, e.target.value)}
-                                className="font-black text-lg text-white bg-transparent border-b border-transparent hover:border-slate-600 focus:border-amber-500 focus:outline-none w-full transition-all"
-                              />
+                              {PLAYERS_LOCKED ? (
+                                <p className="font-black text-lg text-white">{player.name}</p>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={player.name}
+                                  onChange={(e) => handleNameChange(player.id, e.target.value)}
+                                  className="font-black text-lg text-white bg-transparent border-b border-transparent hover:border-slate-600 focus:border-amber-500 focus:outline-none w-full transition-all"
+                                />
+                              )}
                               <p className="text-[11px] text-amber-400 font-medium truncate max-w-[180px]">{pool?.name}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -966,12 +1011,14 @@ export default function SlipPickApp() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSimulate}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 hover:text-indigo-100 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 px-3 py-1.5 rounded-lg transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> {isSimView ? 'Re-simulate' : 'Simulate gaps'}
-                  </button>
+                  {!RESULTS_LOCKED && (
+                    <button
+                      onClick={handleSimulate}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 hover:text-indigo-100 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> {isSimView ? 'Re-simulate' : 'Simulate gaps'}
+                    </button>
+                  )}
                   {isSimView && (
                     <button
                       onClick={showActualBracket}
@@ -1035,6 +1082,43 @@ export default function SlipPickApp() {
             </div>
           );
         })()}
+
+        {/* Footer: App summary, Fairness notice, Disclaimer */}
+        <footer className="mt-12 space-y-4">
+          {/* App summary */}
+          <section className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex flex-col md:flex-row gap-4 items-start">
+            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl shrink-0">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-amber-300">About This App</h3>
+              <p className="text-slate-400 text-sm mt-1 leading-relaxed">
+                The <strong className="text-white">FMG World Cup 2026 Sweepstakes Bracket Balancer</strong> splits 48 teams across 8 balanced pools — one pool per player. Each pool is carefully constructed to give every participant a fair shot: 6 teams from 6 unique groups, balanced across bracket halves. Players draw their pool at random, then simulate the full 2026 FIFA World Cup bracket to see whose teams advance the furthest and claim the prize pot.
+              </p>
+            </div>
+          </section>
+
+          {/* Fairness Guarantee Notice */}
+          <section className="bg-gradient-to-br from-indigo-950 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 flex flex-col md:flex-row gap-4 items-start">
+            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl shrink-0">
+              <ShieldCheck className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-indigo-300">Mathematical Fairness Blueprint Activated</h3>
+              <p className="text-slate-400 text-sm mt-1 leading-relaxed">
+                Each pool contains exactly <strong className="text-white">6 teams</strong> from <strong className="text-white">6 unique groups</strong>, split <strong className="text-white">3-3 between Left &amp; Right bracket halves</strong>. Pools follow the real 2026 World Cup bracket — only match results are simulated at random. Pool mates are kept in different bracket quarters where possible, meaning most can only meet in the Semi-finals or Final.
+              </p>
+            </div>
+          </section>
+
+          {/* Disclaimer */}
+          <section className="bg-slate-800/30 border border-slate-700/40 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-start">
+            <span className="text-2xl">🍗</span>
+            <p className="text-slate-500 text-xs leading-relaxed">
+              <strong className="text-slate-400">Friendly use only.</strong> A lighthearted sweepstakes crafted with FriedChicken love — built for casual fun among friends. Live match results are kept up to date when the bot is running; for matches yet to be played, hit Simulate to preview what might unfold. Play at your own risk and enjoy every kick! ⚽
+            </p>
+          </section>
+        </footer>
 
       </main>
     </div>

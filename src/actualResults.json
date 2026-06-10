@@ -1,5 +1,5 @@
 {
-  "_comment": "Real (played) World Cup 2026 results. Hand-edit this file as matches are played; the app loads it on startup and shows it in the Bracket tab. Everything is partial-friendly: leave a value null until that match/group is decided and the app shows TBD. All team references use kebab-case IDs from src/teams.js.",
+  "_comment": "Real (played) World Cup 2026 results. Run `node scripts/fetch-results.mjs` to auto-update, or hand-edit this file. All team references use kebab-case IDs from src/teams.js.",
   "_format": {
     "groups": "Per-group final standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs. Use null until the group is fully decided.",
     "thirdSlots": "Which qualified 3rd-place team fills each of the 8 'bye' Round-of-32 slots (team B of those matches). The 8 values are the thirds that advanced. Use null until seeded.",
