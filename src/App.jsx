@@ -147,8 +147,11 @@ export default function SlipPickApp() {
     setRankingsStatus('loading');
     try {
       const rankings = await fetchFifaRankings();
+      // Merge over existing rankings so teams omitted from the current match-window
+      // response (e.g. eliminated sides) keep their last-known points.
+      const merged = { ...(fifaRankings ?? {}), ...rankings };
       const fetchedAt = new Date().toISOString();
-      setFifaRankings(rankings);
+      setFifaRankings(merged);
       setRankingsFetchedAt(fetchedAt);
       setRankingsStatus('idle');
       // Persist to src/fifaRankingsCache.json via the Vite dev/preview server plugin.
@@ -156,7 +159,7 @@ export default function SlipPickApp() {
       fetch('/api/save-rankings-cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fetchedAt, rankings }),
+        body: JSON.stringify({ fetchedAt, rankings: merged }),
       }).catch(() => {});
     } catch {
       setRankingsStatus('error');
