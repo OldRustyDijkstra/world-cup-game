@@ -2,7 +2,7 @@ export const POOLS = [
 	{
 		id: 1,
 		name: "Pool 1",
-		teams: ["mexico", "switzerland", "tunisia", "france", "algeria", "jamaica"],
+		teams: ["mexico", "switzerland", "tunisia", "france", "algeria", "dr-congo"],
 	},
 	{
 		id: 2,

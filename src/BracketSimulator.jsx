@@ -29,13 +29,17 @@ const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 // The 8 former "bye" R32 slots whose Team B is a qualified third-place finisher.
 const THIRD_SLOT_LABELS = ['M74', 'M77', 'M79', 'M80', 'M81', 'M82', 'M85', 'M87'];
 
-const EMPTY_ACTUAL = { groups: {}, thirdSlots: {}, winners: {} };
+const EMPTY_ACTUAL = { groups: {}, groupsComplete: {}, thirdSlots: {}, winners: {} };
 
 // poolsData: array of { id, teams: [{id, name, group, half, tier, flag}] }
-// actual:    { groups, thirdSlots, winners } — any field may be null/partial
+// actual:    { groups, groupsComplete, thirdSlots, winners } — fields may be null/partial.
+//            `groups[X]` may hold live (partial) standings while a group is still in progress;
+//            `groupsComplete[X]` is true only once all 6 of that group's matches are played.
+//            R32 seeding only uses standings from complete (or simulated) groups.
 // options:   { simulate } — when true, undecided slots are randomly filled
 export function buildBracket(poolsData, actual = EMPTY_ACTUAL, { simulate = false } = {}) {
   const groupsActual = actual?.groups ?? {};
+  const groupsCompleteActual = actual?.groupsComplete ?? {};
   const thirdSlotsActual = actual?.thirdSlots ?? {};
   const winnersActual = actual?.winners ?? {};
 
@@ -52,19 +56,26 @@ export function buildBracket(poolsData, actual = EMPTY_ACTUAL, { simulate = fals
   const resolveId = (id) => (id && byId[id]) || null;
 
   // ── Group stage standings ────────────────────────────────────────────────
+  // `first/second/third/fourth` are display standings (partial-OK while a group
+  // is still in progress). `firstQ/secondQ/thirdQ` are bracket-seed standings —
+  // only populated when the group is finished, or simulate-mode produced them.
   const first = {};
   const second = {};
   const third = {};
   const fourth = {};
+  const firstQ = {};
+  const secondQ = {};
+  const thirdQ = {};
   const groupStatus = {};
   GROUPS.forEach((g) => {
     const actualStandings = groupsActual[g];
+    const isComplete = groupsCompleteActual[g] === true;
     if (Array.isArray(actualStandings) && actualStandings.length > 0) {
       first[g] = resolveId(actualStandings[0]);
       second[g] = resolveId(actualStandings[1]);
       third[g] = resolveId(actualStandings[2]);
       fourth[g] = resolveId(actualStandings[3]);
-      groupStatus[g] = 'actual';
+      groupStatus[g] = isComplete ? 'actual' : 'in-progress';
     } else if (simulate && byGroup[g]) {
       const ranked = shuffle(byGroup[g]);
       first[g] = ranked[0] ?? null;
@@ -76,6 +87,12 @@ export function buildBracket(poolsData, actual = EMPTY_ACTUAL, { simulate = fals
       first[g] = second[g] = third[g] = fourth[g] = null;
       groupStatus[g] = 'tbd';
     }
+
+    // Bracket-seed standings: only available when the group is complete or simulated.
+    const seedReady = groupStatus[g] === 'actual' || groupStatus[g] === 'simulated';
+    firstQ[g] = seedReady ? first[g] : null;
+    secondQ[g] = seedReady ? second[g] : null;
+    thirdQ[g] = seedReady ? third[g] : null;
   });
 
   // ── Third-place qualification + seeding into the 8 bye slots ──────────────
@@ -96,7 +113,7 @@ export function buildBracket(poolsData, actual = EMPTY_ACTUAL, { simulate = fals
   // Simulation fills the remaining slots from the unused third-place finishers
   if (simulate) {
     const available = shuffle(
-      GROUPS.map((g) => third[g]).filter((t) => t && !usedThirdIds.has(t.id))
+      GROUPS.map((g) => thirdQ[g]).filter((t) => t && !usedThirdIds.has(t.id))
     );
     let idx = 0;
     THIRD_SLOT_LABELS.forEach((label) => {
@@ -150,24 +167,25 @@ export function buildBracket(poolsData, actual = EMPTY_ACTUAL, { simulate = fals
     return m.winner.id === m.teamA.id ? m.teamB : m.teamA;
   };
 
-  // Round of 32 (M73–M88) — all 16 matches are contested (no byes)
+  // Round of 32 (M73–M88) — all 16 matches are contested (no byes).
+  // Uses `*Q` variants so partial in-progress group standings don't seed the bracket.
   const matchesR32 = [
-    makeMatch('M73', second.A, second.B),
-    makeMatch('M74', first.E, thirdSlotTeam.M74),
-    makeMatch('M75', first.F, second.C),
-    makeMatch('M76', first.C, second.F),
-    makeMatch('M77', first.I, thirdSlotTeam.M77),
-    makeMatch('M78', second.E, second.I),
-    makeMatch('M79', first.A, thirdSlotTeam.M79),
-    makeMatch('M80', first.L, thirdSlotTeam.M80),
-    makeMatch('M81', first.D, thirdSlotTeam.M81),
-    makeMatch('M82', first.G, thirdSlotTeam.M82),
-    makeMatch('M83', second.K, second.L),
-    makeMatch('M84', first.H, second.J),
-    makeMatch('M85', first.B, thirdSlotTeam.M85),
-    makeMatch('M86', first.J, second.H),
-    makeMatch('M87', first.K, thirdSlotTeam.M87),
-    makeMatch('M88', second.D, second.G),
+    makeMatch('M73', secondQ.A, secondQ.B),
+    makeMatch('M74', firstQ.E, thirdSlotTeam.M74),
+    makeMatch('M75', firstQ.F, secondQ.C),
+    makeMatch('M76', firstQ.C, secondQ.F),
+    makeMatch('M77', firstQ.I, thirdSlotTeam.M77),
+    makeMatch('M78', secondQ.E, secondQ.I),
+    makeMatch('M79', firstQ.A, thirdSlotTeam.M79),
+    makeMatch('M80', firstQ.L, thirdSlotTeam.M80),
+    makeMatch('M81', firstQ.D, thirdSlotTeam.M81),
+    makeMatch('M82', firstQ.G, thirdSlotTeam.M82),
+    makeMatch('M83', secondQ.K, secondQ.L),
+    makeMatch('M84', firstQ.H, secondQ.J),
+    makeMatch('M85', firstQ.B, thirdSlotTeam.M85),
+    makeMatch('M86', firstQ.J, secondQ.H),
+    makeMatch('M87', firstQ.K, thirdSlotTeam.M87),
+    makeMatch('M88', secondQ.D, secondQ.G),
   ];
 
   // Round of 16 (M89–M96)

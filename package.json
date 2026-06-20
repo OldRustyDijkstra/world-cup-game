@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "fetch-results": "node scripts/fetch-results.mjs",
     "deploy:preview": "npm run build && swa deploy ./dist --env preview",
     "deploy:production": "npm run build && swa deploy ./dist --env production",
     "deploy:all": "npm run build && swa deploy ./dist --env preview && swa deploy ./dist --env production"

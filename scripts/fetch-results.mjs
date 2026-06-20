@@ -59,6 +59,8 @@ const NAME_TO_ID = {
   'Canada': 'canada',
   'Colombia': 'colombia',
   'Croatia': 'croatia',
+  'Congo DR': 'dr-congo',
+  'DR Congo': 'dr-congo',
   'Curaçao': 'curacao',
   'Curacao': 'curacao',
   'Czechia': 'czechia',
@@ -76,7 +78,6 @@ const NAME_TO_ID = {
   "Côte d'Ivoire": 'ivory-coast',
   "Cote d'Ivoire": 'ivory-coast',
   'Ivory Coast': 'ivory-coast',
-  'Jamaica': 'jamaica',
   'Japan': 'japan',
   'Jordan': 'jordan',
   'Korea Republic': 'south-korea',
@@ -129,6 +130,7 @@ function toId(name) {
 // ─── Empty template (mirrors src/actualResults.json) ─────────────────────────
 function emptyResults() {
   const groups = Object.fromEntries('ABCDEFGHIJKL'.split('').map(g => [g, null]));
+  const groupsComplete = Object.fromEntries('ABCDEFGHIJKL'.split('').map(g => [g, false]));
   const thirdSlots = Object.fromEntries(
     ['M74','M77','M79','M80','M81','M82','M85','M87'].map(l => [l, null])
   );
@@ -146,7 +148,7 @@ function emptyResults() {
      'QF1','QF2','QF3','QF4','SF1','SF2','3rd','Final']
     .map(l => [l, null])
   );
-  return { groups, thirdSlots, winners, matchDates };
+  return { groups, groupsComplete, thirdSlots, winners, matchDates };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,15 +274,18 @@ function parseFIFAResults(data) {
     }
   }
 
-  // Sort each completed group and populate out.groups
+  // Sort each group by current standings (points → GD → GF) and populate out.groups.
+  // Partial standings are written too — they reflect the live order, will firm up
+  // as more matches are played. groupsComplete[letter] flips to true once all 6
+  // matches in the group are played (downstream: R32 seeding gates on this).
   for (const [letter, teams] of Object.entries(groupStats)) {
     const counts = groupMatchCounts[letter];
-    if (!counts || counts.played < 6) continue; // Group not fully played yet
     const sorted = Object.entries(teams)
       .map(([id, s]) => ({ id, ...s }))
       .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     if (sorted.length === 4) {
       out.groups[letter] = sorted.map(t => t.id);
+      out.groupsComplete[letter] = !!counts && counts.played >= 6;
     }
   }
 
@@ -461,12 +466,13 @@ async function main() {
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  const decidedGroups = Object.values(results.groups).filter(Boolean).length;
+  const groupsWithStandings = Object.values(results.groups).filter(Boolean).length;
+  const groupsComplete = Object.values(results.groupsComplete).filter(Boolean).length;
   const decidedWinners = Object.values(results.winners).filter(Boolean).length;
   const decidedThirds = Object.values(results.thirdSlots).filter(Boolean).length;
 
   console.log(`\n📊 Results summary (source: ${source}):`);
-  console.log(`   Groups decided:          ${decidedGroups}/12`);
+  console.log(`   Groups with standings:    ${groupsWithStandings}/12 (${groupsComplete} fully decided)`);
   console.log(`   Third-place slots filled: ${decidedThirds}/8`);
   console.log(`   Knockout winners:        ${decidedWinners}/32`);
 
@@ -476,6 +482,7 @@ async function main() {
     const raw = JSON.parse(readFileSync(OUT, 'utf-8'));
     existing = {
       groups: raw.groups ?? {},
+      groupsComplete: raw.groupsComplete ?? {},
       thirdSlots: raw.thirdSlots ?? {},
       winners: raw.winners ?? {},
       matchDates: raw.matchDates ?? {},
@@ -483,15 +490,21 @@ async function main() {
   } catch { /* file missing or malformed, start fresh */ }
 
   const merged = {
-    _comment: "Real (played) World Cup 2026 results. Run `node scripts/fetch-results.mjs` to auto-update, or hand-edit this file. All team references use kebab-case IDs from src/teams.js.",
+    _comment: "Real (played) World Cup 2026 results. Run `npm run fetch-results` to auto-update, or hand-edit this file. All team references use kebab-case IDs from src/teams.js.",
     _format: {
-      groups: "Per-group final standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs. Use null until the group is fully decided.",
+      fetchedAt: "ISO timestamp of the last successful `npm run fetch-results` run. Displayed in the Bracket tab.",
+      groups: "Per-group standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs by current points/GD/GF. May be partial while the group is still in progress; firms up as matches are played.",
+      groupsComplete: "Per-group boolean — true once all 6 of that group's matches are played. R32 seeding only uses `groups[X]` when groupsComplete[X] is true.",
       thirdSlots: "Which qualified 3rd-place team fills each of the 8 'bye' Round-of-32 slots (team B of those matches). The 8 values are the thirds that advanced. Use null until seeded.",
       winners: "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played.",
       matchDates: "UTC ISO kick-off time for each knockout match (auto-populated from FIFA API). Used for display purposes only."
     },
+    fetchedAt: new Date().toISOString(),
     groups: Object.fromEntries(
       Object.keys(existing.groups).map(k => [k, results.groups[k] ?? existing.groups[k] ?? null])
+    ),
+    groupsComplete: Object.fromEntries(
+      'ABCDEFGHIJKL'.split('').map(k => [k, results.groupsComplete[k] ?? existing.groupsComplete?.[k] ?? false])
     ),
     thirdSlots: Object.fromEntries(
       Object.keys(existing.thirdSlots).map(k => [k, results.thirdSlots[k] ?? existing.thirdSlots[k] ?? null])
@@ -515,7 +528,7 @@ async function main() {
     console.log('   Hand-edit src/actualResults.json for those groups.\n');
   }
   const nullThirds = Object.entries(merged.thirdSlots).filter(([,v]) => !v).map(([k]) => k);
-  if (nullThirds.length && decidedGroups > 0) {
+  if (nullThirds.length && groupsComplete > 0) {
     console.log(`⚠️  Third-place slots still null: ${nullThirds.join(', ')}`);
     console.log('   These are filled by FIFA after the group stage ends.\n');
   }

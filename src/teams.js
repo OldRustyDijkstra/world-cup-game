@@ -48,7 +48,7 @@ export const TEAMS = [
 	{ id: "jordan", name: "Jordan", group: "J", half: "Right", tier: "Underdog", flag: "🇯🇴" },
 	{ id: "portugal", name: "Portugal", group: "K", half: "Right", tier: "Top Tier", flag: "🇵🇹" },
 	{ id: "colombia", name: "Colombia", group: "K", half: "Right", tier: "Mid Tier", flag: "🇨🇴" },
-	{ id: "jamaica", name: "Jamaica", group: "K", half: "Right", tier: "Underdog", flag: "🇯🇲" },
+	{ id: "dr-congo", name: "DR Congo", group: "K", half: "Right", tier: "Underdog", flag: "🇨🇩" },
 	{ id: "uzbekistan", name: "Uzbekistan", group: "K", half: "Right", tier: "Underdog", flag: "🇺🇿" },
 	{ id: "croatia", name: "Croatia", group: "L", half: "Right", tier: "Top Tier", flag: "🇭🇷" },
 	{ id: "england", name: "England", group: "L", half: "Right", tier: "Top Tier", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },

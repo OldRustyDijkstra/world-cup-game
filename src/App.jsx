@@ -995,6 +995,8 @@ ${diagram}
           const statusBadge = (status) => {
             if (status === 'actual')
               return <span className="text-[9px] uppercase tracking-wide text-emerald-300 bg-emerald-900/30 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Played</span>;
+            if (status === 'in-progress')
+              return <span className="text-[9px] uppercase tracking-wide text-sky-300 bg-sky-900/30 border border-sky-700/40 px-1.5 py-0.5 rounded-full">Live</span>;
             if (status === 'simulated')
               return <span className="text-[9px] uppercase tracking-wide text-indigo-300 bg-indigo-900/40 border border-indigo-700/40 px-1.5 py-0.5 rounded-full">Sim</span>;
             return <span className="text-[9px] uppercase tracking-wide text-slate-500 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded-full">TBD</span>;
@@ -1081,6 +1083,11 @@ ${diagram}
                       ? 'Undecided matches are randomly simulated (“Sim”). Played matches are never changed.'
                       : 'Showing the real played matches. Undecided matches are marked TBD.'}
                   </p>
+                  {actualResults.fetchedAt && (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Results last fetched: {new Date(actualResults.fetchedAt).toLocaleString('en-AU', { timeZone: 'Australia/Perth', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} AWST
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {!RESULTS_LOCKED && (

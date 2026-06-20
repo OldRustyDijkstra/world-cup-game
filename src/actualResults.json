@@ -1,23 +1,101 @@
 {
-  "_comment": "Real (played) World Cup 2026 results. Run `node scripts/fetch-results.mjs` to auto-update, or hand-edit this file. All team references use kebab-case IDs from src/teams.js.",
+  "_comment": "Real (played) World Cup 2026 results. Run `npm run fetch-results` to auto-update, or hand-edit this file. All team references use kebab-case IDs from src/teams.js.",
   "_format": {
-    "groups": "Per-group final standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs. Use null until the group is fully decided.",
+    "fetchedAt": "ISO timestamp of the last successful `npm run fetch-results` run. Displayed in the Bracket tab.",
+    "groups": "Per-group standings as an ordered array [1st, 2nd, 3rd, 4th] of team IDs by current points/GD/GF. May be partial while the group is still in progress; firms up as matches are played.",
+    "groupsComplete": "Per-group boolean — true once all 6 of that group's matches are played. R32 seeding only uses `groups[X]` when groupsComplete[X] is true.",
     "thirdSlots": "Which qualified 3rd-place team fills each of the 8 'bye' Round-of-32 slots (team B of those matches). The 8 values are the thirds that advanced. Use null until seeded.",
-    "winners": "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played."
+    "winners": "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played.",
+    "matchDates": "UTC ISO kick-off time for each knockout match (auto-populated from FIFA API). Used for display purposes only."
   },
+  "fetchedAt": "2026-06-20T11:54:05.275Z",
   "groups": {
-    "A": null,
-    "B": null,
-    "C": null,
-    "D": null,
-    "E": null,
-    "F": null,
-    "G": null,
-    "H": null,
-    "I": null,
-    "J": null,
-    "K": null,
-    "L": null
+    "A": [
+      "mexico",
+      "south-korea",
+      "czechia",
+      "south-africa"
+    ],
+    "B": [
+      "canada",
+      "switzerland",
+      "bosnia-and-herzegovina",
+      "qatar"
+    ],
+    "C": [
+      "brazil",
+      "morocco",
+      "scotland",
+      "haiti"
+    ],
+    "D": [
+      "united-states",
+      "australia",
+      "paraguay",
+      "turkiye"
+    ],
+    "E": [
+      "germany",
+      "ivory-coast",
+      "ecuador",
+      "curacao"
+    ],
+    "F": [
+      "sweden",
+      "netherlands",
+      "japan",
+      "tunisia"
+    ],
+    "G": [
+      "iran",
+      "new-zealand",
+      "belgium",
+      "egypt"
+    ],
+    "H": [
+      "saudi-arabia",
+      "uruguay",
+      "spain",
+      "cape-verde"
+    ],
+    "I": [
+      "norway",
+      "france",
+      "senegal",
+      "iraq"
+    ],
+    "J": [
+      "argentina",
+      "austria",
+      "jordan",
+      "algeria"
+    ],
+    "K": [
+      "colombia",
+      "portugal",
+      "dr-congo",
+      "uzbekistan"
+    ],
+    "L": [
+      "england",
+      "ghana",
+      "panama",
+      "croatia"
+    ]
+  },
+  "groupsComplete": {
+    "A": false,
+    "B": false,
+    "C": false,
+    "D": false,
+    "E": false,
+    "F": false,
+    "G": false,
+    "H": false,
+    "I": false,
+    "J": false,
+    "K": false,
+    "L": false
   },
   "thirdSlots": {
     "M74": null,
@@ -62,5 +140,39 @@
     "SF2": null,
     "3rd": null,
     "Final": null
+  },
+  "matchDates": {
+    "M73": "2026-06-28T19:00:00Z",
+    "M74": "2026-06-29T20:30:00Z",
+    "M75": "2026-06-30T01:00:00Z",
+    "M76": "2026-06-29T17:00:00Z",
+    "M77": "2026-06-30T21:00:00Z",
+    "M78": "2026-06-30T17:00:00Z",
+    "M79": "2026-07-01T01:00:00Z",
+    "M80": "2026-07-01T16:00:00Z",
+    "M81": "2026-07-02T00:00:00Z",
+    "M82": "2026-07-01T20:00:00Z",
+    "M83": "2026-07-02T23:00:00Z",
+    "M84": "2026-07-02T19:00:00Z",
+    "M85": "2026-07-03T03:00:00Z",
+    "M86": "2026-07-03T22:00:00Z",
+    "M87": "2026-07-04T01:30:00Z",
+    "M88": "2026-07-03T18:00:00Z",
+    "M89": "2026-07-04T21:00:00Z",
+    "M90": "2026-07-04T17:00:00Z",
+    "M91": "2026-07-05T20:00:00Z",
+    "M92": "2026-07-06T00:00:00Z",
+    "M93": "2026-07-06T19:00:00Z",
+    "M94": "2026-07-07T00:00:00Z",
+    "M95": "2026-07-07T16:00:00Z",
+    "M96": "2026-07-07T20:00:00Z",
+    "QF1": "2026-07-09T20:00:00Z",
+    "QF2": "2026-07-10T19:00:00Z",
+    "QF3": "2026-07-11T21:00:00Z",
+    "QF4": "2026-07-12T01:00:00Z",
+    "SF1": "2026-07-14T19:00:00Z",
+    "SF2": "2026-07-15T19:00:00Z",
+    "3rd": "2026-07-18T21:00:00Z",
+    "Final": "2026-07-19T19:00:00Z"
   }
 }

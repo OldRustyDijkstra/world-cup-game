@@ -44,7 +44,7 @@ export const FIFA_NAME_MAP = {
   'jordan':                 'Jordan',
   'portugal':               'Portugal',
   'colombia':               'Colombia',
-  'jamaica':                'Jamaica',
+  'dr-congo':               'Congo DR',
   'uzbekistan':             'Uzbekistan',
   'croatia':                'Croatia',
   'england':                'England',
