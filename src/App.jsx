@@ -21,6 +21,35 @@ const POOLS_DATA = POOLS.map((pool) => ({
   teams: pool.teams.map((teamId) => TEAMS_BY_ID[teamId]).filter(Boolean)
 }));
 const POOL_IDS = POOLS_DATA.map((pool) => pool.id);
+const TAB_PATHS = {
+  pools: '/pool',
+  dashboard: '/dashboard',
+  scoring: '/scoring',
+  bracket: '/bracket',
+};
+
+const normalizePath = (pathname) => {
+  if (!pathname || pathname === '/') return '/';
+  return pathname.replace(/\/+$/, '');
+};
+
+const getTabFromPath = (pathname) => {
+  switch (normalizePath(pathname)) {
+    case '/pool':
+    case '/pools':
+      return 'pools';
+    case '/dashboard':
+      return 'dashboard';
+    case '/scoring':
+      return 'scoring';
+    case '/bracket':
+      return 'bracket';
+    default:
+      return 'dashboard';
+  }
+};
+
+const getPathForTab = (tab) => TAB_PATHS[tab] ?? '/dashboard';
 
 // If players.json is non-empty, player names and assignments are locked.
 const isPreviewEnv = typeof window !== 'undefined' && window.location.hostname.includes('preview');
@@ -65,7 +94,10 @@ export default function SlipPickApp() {
     try { return JSON.parse(localStorage.getItem('wc26_hasAssigned')) ?? false; }
     catch { return false; }
   });
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'dashboard';
+    return getTabFromPath(window.location.pathname);
+  }); // 'pools' | 'dashboard' | 'scoring' | 'bracket'
   const [prizes, setPrizes] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('wc26_prizes'));
@@ -109,6 +141,30 @@ export default function SlipPickApp() {
   });
   const [rankingsStatus, setRankingsStatus] = useState('idle'); // 'idle' | 'loading' | 'error'
   const tabsRef = useRef(null);
+
+  const navigateToTab = (tab, { replace = false } = {}) => {
+    setActiveTab(tab);
+    if (typeof window === 'undefined') return;
+    const nextPath = getPathForTab(tab);
+    const currentPath = normalizePath(window.location.pathname);
+    if (currentPath === nextPath) return;
+    const nextUrl = `${window.location.origin}${nextPath}${window.location.search}${window.location.hash}`;
+    if (replace) {
+      window.history.replaceState({ tab }, '', nextUrl);
+    } else {
+      window.history.pushState({ tab }, '', nextUrl);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const handlePopState = () => {
+      setActiveTab(getTabFromPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Persist FIFA rankings to localStorage whenever they change
   useEffect(() => {
@@ -213,7 +269,7 @@ export default function SlipPickApp() {
       })));
       setIsShuffling(false);
       setHasAssigned(true);
-      setActiveTab('dashboard');
+      navigateToTab('dashboard', { replace: true });
     }, 2000);
   };
 
@@ -629,7 +685,7 @@ ${diagram}
               </button>
               <button
                 onClick={() => {
-                  setActiveTab('pools');
+                  navigateToTab('pools');
                   tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
                 className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 font-medium px-6 py-3 rounded-xl transition-all"
@@ -643,25 +699,25 @@ ${diagram}
         {/* Navigation Tabs */}
         <div ref={tabsRef} className="flex overflow-x-auto border-b border-slate-800 mb-6 gap-1">
           <button
-            onClick={() => setActiveTab('pools')}
+            onClick={() => navigateToTab('pools')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'pools' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Layers className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Pre-Configured Pools</span>
           </button>
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => navigateToTab('dashboard')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'dashboard' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Award className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Player Dashboards &amp; Standings</span>
           </button>
           <button
-            onClick={() => setActiveTab('bracket')}
+            onClick={() => navigateToTab('bracket')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'bracket' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Trophy className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Bracket</span>
           </button>
           <button
-            onClick={() => setActiveTab('scoring')}
+            onClick={() => navigateToTab('scoring')}
             className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm transition-all border-b-2 ${activeTab === 'scoring' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <HelpCircle className="w-4 h-4 inline mr-0 sm:mr-2" /><span className="hidden sm:inline">Scoring Rules</span>
