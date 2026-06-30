@@ -8,17 +8,17 @@
     "winners": "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played.",
     "matchDates": "UTC ISO kick-off time for each knockout match (auto-populated from FIFA API). Used for display purposes only."
   },
-  "fetchedAt": "2026-06-20T11:54:05.275Z",
+  "fetchedAt": "2026-06-30T09:38:25.297Z",
   "groups": {
     "A": [
       "mexico",
+      "south-africa",
       "south-korea",
-      "czechia",
-      "south-africa"
+      "czechia"
     ],
     "B": [
-      "canada",
       "switzerland",
+      "canada",
       "bosnia-and-herzegovina",
       "qatar"
     ],
@@ -41,34 +41,34 @@
       "curacao"
     ],
     "F": [
-      "sweden",
       "netherlands",
       "japan",
+      "sweden",
       "tunisia"
     ],
     "G": [
-      "iran",
-      "new-zealand",
       "belgium",
-      "egypt"
+      "egypt",
+      "iran",
+      "new-zealand"
     ],
     "H": [
-      "saudi-arabia",
-      "uruguay",
       "spain",
-      "cape-verde"
+      "cape-verde",
+      "uruguay",
+      "saudi-arabia"
     ],
     "I": [
-      "norway",
       "france",
+      "norway",
       "senegal",
       "iraq"
     ],
     "J": [
       "argentina",
       "austria",
-      "jordan",
-      "algeria"
+      "algeria",
+      "jordan"
     ],
     "K": [
       "colombia",
@@ -78,40 +78,40 @@
     ],
     "L": [
       "england",
+      "croatia",
       "ghana",
-      "panama",
-      "croatia"
+      "panama"
     ]
   },
   "groupsComplete": {
-    "A": false,
-    "B": false,
-    "C": false,
-    "D": false,
-    "E": false,
-    "F": false,
-    "G": false,
-    "H": false,
-    "I": false,
-    "J": false,
-    "K": false,
-    "L": false
+    "A": true,
+    "B": true,
+    "C": true,
+    "D": true,
+    "E": true,
+    "F": true,
+    "G": true,
+    "H": true,
+    "I": true,
+    "J": true,
+    "K": true,
+    "L": true
   },
   "thirdSlots": {
-    "M74": null,
-    "M77": null,
-    "M79": null,
-    "M80": null,
-    "M81": null,
-    "M82": null,
-    "M85": null,
-    "M87": null
+    "M74": "paraguay",
+    "M77": "sweden",
+    "M79": "ecuador",
+    "M80": "dr-congo",
+    "M81": "bosnia-and-herzegovina",
+    "M82": "senegal",
+    "M85": "algeria",
+    "M87": "ghana"
   },
   "winners": {
-    "M73": null,
-    "M74": null,
-    "M75": null,
-    "M76": null,
+    "M73": "canada",
+    "M74": "paraguay",
+    "M75": "morocco",
+    "M76": "brazil",
     "M77": null,
     "M78": null,
     "M79": null,
