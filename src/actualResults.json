@@ -8,7 +8,7 @@
     "winners": "Winning team ID for each knockout match actually played (labels M73-M88, M89-M96, QF1-QF4, SF1, SF2, 3rd, Final). Use null until the match is played.",
     "matchDates": "UTC ISO kick-off time for each knockout match (auto-populated from FIFA API). Used for display purposes only."
   },
-  "fetchedAt": "2026-06-30T09:54:17.822Z",
+  "fetchedAt": "2026-06-30T23:00:15.222Z",
   "groups": {
     "A": [
       "mexico",
@@ -112,8 +112,8 @@
     "M74": "paraguay",
     "M75": "morocco",
     "M76": "brazil",
-    "M77": null,
-    "M78": null,
+    "M77": "france",
+    "M78": "norway",
     "M79": null,
     "M80": null,
     "M81": null,
